@@ -1,0 +1,5 @@
+numpy>=1.26
+requests>=2.31
+OWSLib>=0.31
+rasterio>=1.3
+pytest>=8.0
