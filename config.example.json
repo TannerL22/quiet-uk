@@ -1,0 +1,47 @@
+{
+  "crs": "EPSG:27700",
+  "metric": "Lden",
+  "reporting_threshold_db": {
+    "road": 40.0,
+    "rail": 40.0,
+    "airport": null
+  },
+  "wcs": {
+    "road": "https://environment.data.gov.uk/spatialdata/road-noise-all-metrics-england-round-4/wcs",
+    "rail": "https://environment.data.gov.uk/spatialdata/noise-data/wcs",
+    "airport": "https://environment.data.gov.uk/spatialdata/airport-noise-all-metrics-england-round-4/wcs"
+  },
+  "wcs_versions": {
+    "road": "1.0.0",
+    "rail": "1.0.0",
+    "airport": "2.0.1"
+  },
+  "wcs_formats": {
+    "road": "GeoTIFF",
+    "rail": "GeoTIFF",
+    "airport": "image/tiff"
+  },
+  "coverage_ids": {
+    "road": null,
+    "rail": null,
+    "airport": null
+  },
+  "coverage_bounds_epsg27700": {
+    "airport": [333485, 93815, 594465, 574285]
+  },
+  "ons_england_boundary_url": "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Countries_December_2024_Boundaries_UK_BGC/FeatureServer/0/query",
+  "pilot_bbox_epsg27700": [503000, 171000, 513000, 181000],
+  "pilot_resolution_m": 10,
+  "output_resolution_m": 100,
+  "tile_size_m": 10000,
+  "england_mask_100m_path": "data/processed/england_mask/england_100m_mask.tif",
+  "england_mask_metadata_path": "data/processed/england_mask/metadata.json",
+  "wcs_request_timeout_s": 180,
+  "runner": {
+    "max_workers": 1,
+    "min_tile_start_interval_s": 1.0,
+    "max_attempts": 4,
+    "retry_base_backoff_s": 5.0,
+    "retry_max_backoff_s": 120.0
+  }
+}
