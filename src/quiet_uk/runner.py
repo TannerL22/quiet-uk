@@ -231,9 +231,11 @@ def run_batch(config: dict, output_root: str | Path, manifest_path: str | Path,
     _atomic_json_write(manifest_path, manifest)
 
     todo: list[Tile] = []
+    skipped_complete = 0
     for tile in selected:
         record = manifest["tiles"][tile.tile_id]
         if _validate_completed(config, record):
+            skipped_complete += 1
             continue
         if failed_only and record.get("status") != "failed":
             continue
@@ -242,7 +244,8 @@ def run_batch(config: dict, output_root: str | Path, manifest_path: str | Path,
     if not todo:
         manifest["updated_at"] = _now()
         _atomic_json_write(manifest_path, manifest)
-        return {"scheduled": len(selected), "processed": 0, "skipped_complete": len(selected), "failed": 0}
+        print(f"England run: {skipped_complete}/{len(selected)} tiles already complete; nothing to do", flush=True)
+        return {"scheduled": len(selected), "processed": 0, "skipped_complete": skipped_complete, "failed": 0}
 
     runner = config.get("runner", {})
     worker_count = max(1, int(workers if workers is not None else runner.get("max_workers", 1)))
@@ -250,6 +253,11 @@ def run_batch(config: dict, output_root: str | Path, manifest_path: str | Path,
     processed = 0
     failed = 0
     running_ids: set[str] = set()
+    print(
+        f"England run: {skipped_complete} complete, {len(todo)} to process, "
+        f"{len(selected)} scheduled; workers={worker_count}",
+        flush=True,
+    )
 
     def invoke(tile: Tile):
         record = manifest["tiles"][tile.tile_id]
@@ -267,8 +275,20 @@ def run_batch(config: dict, output_root: str | Path, manifest_path: str | Path,
                 record = future.result()
                 if record.get("status") == "complete":
                     processed += 1
+                    print(
+                        f"[{processed + skipped_complete}/{len(selected)}] "
+                        f"{record['tile']['tile_id']} complete "
+                        f"(attempts={record.get('attempts', 0)})",
+                        flush=True,
+                    )
                 else:
                     failed += 1
+                    print(
+                        f"[{processed + failed + skipped_complete}/{len(selected)}] "
+                        f"{record['tile']['tile_id']} failed "
+                        f"(attempts={record.get('attempts', 0)}): {record.get('last_error')}",
+                        flush=True,
+                    )
     except KeyboardInterrupt:
         for tile_id in list(running_ids):
             record = manifest["tiles"][tile_id]
