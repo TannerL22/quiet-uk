@@ -39,6 +39,7 @@
   "wcs_request_timeout_s": 180,
   "runner": {
     "max_workers": 1,
+    "progress": true,
     "min_tile_start_interval_s": 1.0,
     "max_attempts": 4,
     "retry_base_backoff_s": 5.0,
