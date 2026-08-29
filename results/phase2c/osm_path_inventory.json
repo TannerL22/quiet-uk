@@ -1,0 +1,12 @@
+{
+  "endpoint": "https://overpass-api.de/api/interpreter",
+  "attempted_regions": [
+    "heathrow_london",
+    "south_downs",
+    "peak_district",
+    "east_anglia_coast"
+  ],
+  "paths_retrieved": 4,
+  "errors": [],
+  "licence": "OpenStreetMap data, \u00a9 OpenStreetMap contributors, ODbL"
+}

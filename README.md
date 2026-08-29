@@ -1,6 +1,8 @@
-# Quiet UK — Phase 1 England
+# Quiet UK — England anthropogenic noise pipeline
 
 A reproducible pipeline for building a fine-resolution map of **modelled anthropogenic environmental noise** in England using Defra Round 4 strategic noise mapping.
+
+The Phase 1 England national output has been downloaded, masked and QA-validated. The current Phase 2C road-source work is a bounded research experiment for sub-threshold interpretation; it does not replace or modify the frozen Phase 1 national raster.
 
 ## Phase 1 objective
 
@@ -108,7 +110,7 @@ Censoring adds another wrinkle. A censored 10 m cell is **not dropped** from the
 
 For quiet-place discovery, future national output should also retain an intrusion statistic such as the maximum or p90 fine-grid level within each 100 m cell so a mostly quiet block with one noisy road edge can be distinguished from a uniformly quiet block.
 
-## Validation completed in v0.2
+## Validation completed locally
 
 The local test suite checks:
 
@@ -121,9 +123,11 @@ The local test suite checks:
 
 A synthetic three-source GeoTIFF integration test has also been run through the full combine → 100 m export path to verify raster dimensions, band descriptions, British National Grid georeferencing and affine scaling. Synthetic rasters are deliberately **not included** in this package so they cannot be mistaken for Defra observations.
 
-## After the live pilot
+The England Phase 1 production run has 1,498 complete 10 km tiles and 13,086,924 England land 100 m cells; see `notes/ENGLAND_NATIONAL_VALIDATION.md`. Phase 2C has a separate deterministic traffic-assignment, finite-line source-integration and bounded-model experiment over ten geographically varied regions; see `notes/PHASE2C_ROAD_SOURCE_INTEGRITY.md`. It remains research-only because most OS road links are imputed and the Defra targets are censored below threshold.
 
-Once one real tile is verified, the England build becomes:
+## Phase 1 England national build
+
+The national Phase 1 build is complete and remains reproducible from the production runner and manifests. Its validated workflow is:
 
 1. tile the England extent,
 2. download source rasters in manageable chunks,
@@ -135,6 +139,8 @@ Once one real tile is verified, the England build becomes:
 8. find contiguous low-`combined_upper_db` zones,
 9. calculate conservative national quiet-candidate rankings,
 10. publish web tiles / PMTiles in MapLibre.
+
+The final two steps are downstream products, not part of the frozen acoustic raster validation. Do not start a national Phase 2 road reconstruction from the Phase 2C research outputs without independent sub-threshold validation.
 
 ## Phase 2: resolving the truly quiet places
 

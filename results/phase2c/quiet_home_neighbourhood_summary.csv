@@ -1,0 +1,7 @@
+target,radius,n,spearman_predicted_vs_full_target_grid,mean_target_db,note
+lden,exact,653,0.5717397598803269,51.57166928208075,100 m/250 m values are full target-grid neighbourhood means; censored centres are excluded from rank evaluation.
+lden,100m,653,0.5592325310849104,51.75315557178545,100 m/250 m values are full target-grid neighbourhood means; censored centres are excluded from rank evaluation.
+lden,250m,653,0.5656526704230214,51.88249436180898,100 m/250 m values are full target-grid neighbourhood means; censored centres are excluded from rank evaluation.
+lnight,exact,507,0.35468677962755396,44.234812569100946,100 m/250 m values are full target-grid neighbourhood means; censored centres are excluded from rank evaluation.
+lnight,100m,507,0.3170884760040213,44.37565442791539,100 m/250 m values are full target-grid neighbourhood means; censored centres are excluded from rank evaluation.
+lnight,250m,507,0.32184581278674457,44.464044178136405,100 m/250 m values are full target-grid neighbourhood means; censored centres are excluded from rank evaluation.

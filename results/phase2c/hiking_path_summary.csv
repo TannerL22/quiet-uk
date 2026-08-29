@@ -1,0 +1,5 @@
+path_id,region_id,highway,length_m,sample_spacing_m,sample_n,median_predicted_db,p90_predicted_db,share_below_threshold,longest_noisy_section_m,longest_quiet_section_m,threshold_db
+osm_heathrow_london_4288632,heathrow_london,primary,918.1847834739159,100.0,11,65.04367436561043,66.17864490462841,0.0,1100.0,0.0,40.0
+osm_south_downs_29213554,south_downs,tertiary,1781.0166062052651,100.0,19,54.96608455048564,57.89543809661811,0.0,1900.0,0.0,40.0
+osm_peak_district_4340380,peak_district,primary,2418.9040373180346,100.0,26,49.99921962481177,51.89458190923297,0.0,2600.0,0.0,40.0
+osm_east_anglia_coast_240039132,east_anglia_coast,path,8293.161357159954,100.0,84,31.79682165391222,33.42884770045303,1.0,0.0,8400.0,40.0
