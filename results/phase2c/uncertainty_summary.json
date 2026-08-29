@@ -1,0 +1,31 @@
+{
+  "summary": [
+    {
+      "target": "lden",
+      "median_model_disagreement_sd_db": 1.2687438860758515,
+      "p90_model_disagreement_sd_db": 2.3428793786148936,
+      "bounded_min_db": 22.86534591515818,
+      "linear_min_db": 22.865352922306364,
+      "linear_negative_fraction": 0.0,
+      "bounded_negative_fraction": 0.0,
+      "rural_linear_negative_fraction": 0.0,
+      "rural_bounded_negative_fraction": 0.0,
+      "threshold_db": 40.0,
+      "note": "Model disagreement and residual scale are diagnostics, not calibrated measurement error."
+    },
+    {
+      "target": "lnight",
+      "median_model_disagreement_sd_db": 1.417359212141545,
+      "p90_model_disagreement_sd_db": 2.581684629168758,
+      "bounded_min_db": 12.223193143451486,
+      "linear_min_db": 12.223161349357083,
+      "linear_negative_fraction": 0.0,
+      "bounded_negative_fraction": 0.0,
+      "rural_linear_negative_fraction": 0.0,
+      "rural_bounded_negative_fraction": 0.0,
+      "threshold_db": 35.0,
+      "note": "Model disagreement and residual scale are diagnostics, not calibrated measurement error."
+    }
+  ],
+  "note": "Model disagreement and fitted residual scale are not real-world confidence intervals."
+}

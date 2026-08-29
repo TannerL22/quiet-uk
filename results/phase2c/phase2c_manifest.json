@@ -1,0 +1,214 @@
+{
+  "prototype": "Quiet UK Phase 2C road-source integrity and stability pass",
+  "phase2b_commit": "4a07a21",
+  "regions": [
+    {
+      "region_id": "heathrow_london",
+      "label": "Heathrow / outer London",
+      "bbox": [
+        503000,
+        171000,
+        513000,
+        181000
+      ],
+      "landscape": "dense London, motorway and aviation context",
+      "urban_rural": "urban"
+    },
+    {
+      "region_id": "birmingham_m42",
+      "label": "Birmingham / M42",
+      "bbox": [
+        400000,
+        275000,
+        410000,
+        285000
+      ],
+      "landscape": "dense urban and motorway",
+      "urban_rural": "urban"
+    },
+    {
+      "region_id": "manchester_m60",
+      "label": "Manchester / M60",
+      "bbox": [
+        380000,
+        390000,
+        390000,
+        400000
+      ],
+      "landscape": "dense urban and motorway",
+      "urban_rural": "urban"
+    },
+    {
+      "region_id": "suburban_leeds",
+      "label": "Leeds suburban fringe",
+      "bbox": [
+        425000,
+        430000,
+        435000,
+        440000
+      ],
+      "landscape": "suburban arterial and local roads",
+      "urban_rural": "suburban"
+    },
+    {
+      "region_id": "norfolk_flat",
+      "label": "Norfolk flat rural",
+      "bbox": [
+        620000,
+        300000,
+        630000,
+        310000
+      ],
+      "landscape": "flat rural minor-road countryside",
+      "urban_rural": "rural"
+    },
+    {
+      "region_id": "south_downs",
+      "label": "South Downs fringe",
+      "bbox": [
+        520000,
+        110000,
+        530000,
+        120000
+      ],
+      "landscape": "rural A/B roads and rolling terrain",
+      "urban_rural": "rural"
+    },
+    {
+      "region_id": "peak_district",
+      "label": "Peak District",
+      "bbox": [
+        410000,
+        385000,
+        420000,
+        395000
+      ],
+      "landscape": "hilly National Park context",
+      "urban_rural": "rural"
+    },
+    {
+      "region_id": "north_york_moors",
+      "label": "North York Moors fringe",
+      "bbox": [
+        480000,
+        470000,
+        490000,
+        480000
+      ],
+      "landscape": "hilly rural and remote roads",
+      "urban_rural": "rural"
+    },
+    {
+      "region_id": "east_anglia_coast",
+      "label": "East Anglia coastal rural",
+      "bbox": [
+        640000,
+        250000,
+        650000,
+        260000
+      ],
+      "landscape": "coastal rural roads",
+      "urban_rural": "rural"
+    },
+    {
+      "region_id": "northumberland_remote",
+      "label": "Northumberland remote",
+      "bbox": [
+        390000,
+        600000,
+        400000,
+        610000
+      ],
+      "landscape": "remote northern countryside",
+      "urban_rural": "rural"
+    }
+  ],
+  "sample_n_per_region": 100,
+  "records": 2000,
+  "primary_year": 2021,
+  "thresholds": {
+    "lden_min_positive_values": [
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0
+    ],
+    "lnight_min_positive_values": [
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      35.0
+    ],
+    "lden_threshold_inferred_db": 40.0,
+    "lnight_threshold_inferred_db": 35.0,
+    "lden_range_db": [
+      40.0,
+      40.0
+    ],
+    "lnight_range_db": [
+      35.0,
+      35.0
+    ],
+    "method": "minimum finite reported value per region; threshold used only when all regional minima agree within 0.5 dB"
+  },
+  "land_mask": "C:\\Users\\tanne\\Desktop\\quiet-uk-starter-v0.2\\quiet-uk-starter\\data\\processed\\england_mask\\england_100m_mask.tif",
+  "models": [
+    "phase2b_proxy",
+    "phase2c_proxy",
+    "phase2c_finite_line",
+    "phase2c_complete",
+    "phase2c_bounded_finite_line"
+  ],
+  "source_provenance": {
+    "dft_aadf": {
+      "url": "https://storage.googleapis.com/dft-statistics/road-traffic/downloads/data-gov-uk/dft_traffic_counts_aadf.zip",
+      "year": 2021,
+      "rows": 22294
+    },
+    "dft_mrdb": {
+      "url": "https://storage.googleapis.com/dft-statistics/road-traffic/mrdb-2021.zip",
+      "year": 2021
+    },
+    "os_open_roads": {
+      "url": "https://api.os.uk/downloads/v1/products/OpenRoads/downloads?area=GB&format=GeoPackage&redirect",
+      "release": "2026-04",
+      "crs": "EPSG:27700"
+    },
+    "defra_road_lden_coverage_id": "562c9d56-7c2d-4d42-83bb-578d6e97a517:Road_Noise_Lden_England_Round_4_All",
+    "defra_road_lnight_coverage_id": "562c9d56-7c2d-4d42-83bb-578d6e97a517:Road_Noise_Lnight_England_Round_4_All"
+  },
+  "outputs": {
+    "validation_metrics": "C:\\Users\\tanne\\Desktop\\quiet-uk-starter-v0.2\\quiet-uk-starter\\data\\processed\\phase2c_road\\validation_metrics.csv",
+    "comparison": "C:\\Users\\tanne\\Desktop\\quiet-uk-starter-v0.2\\quiet-uk-starter\\data\\processed\\phase2c_road\\phase2b_vs_phase2c_comparison.csv",
+    "lightweight_results": "C:\\Users\\tanne\\Desktop\\quiet-uk-starter-v0.2\\quiet-uk-starter\\results\\phase2c"
+  },
+  "osm_path_inventory": {
+    "endpoint": "https://overpass-api.de/api/interpreter",
+    "attempted_regions": [
+      "heathrow_london",
+      "south_downs",
+      "peak_district",
+      "east_anglia_coast"
+    ],
+    "paths_retrieved": 4,
+    "errors": [],
+    "licence": "OpenStreetMap data, \u00a9 OpenStreetMap contributors, ODbL"
+  },
+  "phase": "2C",
+  "created_at": "2026-08-29T00:12:35.068261+00:00",
+  "updated_at": "2026-08-29T00:12:35.068288+00:00",
+  "phase1_national_tiles_modified": false,
+  "national_phase2_run": false
+}

@@ -1,0 +1,11 @@
+region_id,label,total_cells,eligible_land_cells,excluded_non_land_cells,reported_land_cells,censored_land_cells,land_fraction_of_10m_receptors
+heathrow_london,Heathrow / outer London,1000000,1000000,0,997856,2144,1.0
+birmingham_m42,Birmingham / M42,1000000,1000000,0,841467,158533,1.0
+manchester_m60,Manchester / M60,1000000,1000000,0,988225,11775,1.0
+suburban_leeds,Leeds suburban fringe,1000000,1000000,0,964919,35081,1.0
+norfolk_flat,Norfolk flat rural,1000000,999800,200,849478,150322,0.9998
+south_downs,South Downs fringe,1000000,1000000,0,593150,406850,1.0
+peak_district,Peak District,1000000,1000000,0,148759,851241,1.0
+north_york_moors,North York Moors fringe,1000000,1000000,0,396175,603825,1.0
+east_anglia_coast,East Anglia coastal rural,1000000,594500,405500,177565,416935,0.5945
+northumberland_remote,Northumberland remote,1000000,1000000,0,201538,798462,1.0

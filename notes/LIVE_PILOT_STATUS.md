@@ -1,5 +1,7 @@
 # Live pilot status — v0.2
 
+> Historical status note. The Phase 1 England national run and QA were completed after this pilot note was written. See `notes/ENGLAND_NATIONAL_VALIDATION.md` for the frozen national result and `notes/PHASE2C_ROAD_SOURCE_INTEGRITY.md` for the later bounded road-source experiment.
+
 ## Completed
 
 - Verified current Defra Round 4 road, rail and airport dataset metadata.
@@ -18,11 +20,11 @@
 - Validated the reusable tiled architecture and bounded 2×2 Heathrow seam
   test; see `notes/TILING_AND_AIRPORT_THRESHOLD_VALIDATION.md`.
 
-## National scaling prepared but not launched
+## Subsequent status
 
-The official ONS England mask, resumable national runner, and geographically diverse live canary are documented in `notes/PRODUCTION_READINESS_VALIDATION.md`.
+The official ONS England mask, resumable national runner, and geographically diverse live canary were completed and are documented in `notes/PRODUCTION_READINESS_VALIDATION.md`.
 
-The first live tile is complete, but the England-wide tiling/download step is intentionally deferred. The live airport endpoint requires WCS 2.0.1 and returns a half-cell-shifted native grid; the pilot now pads and aligns it explicitly. The national tiler must preserve that behaviour and resolve the airport threshold policy before ranking national quiet areas.
+The live airport endpoint requires WCS 2.0.1 and returns a half-cell-shifted native grid; the validated national tiler pads and aligns it explicitly. Airport threshold variation remains a limitation for any airport-inclusive upper-bound interpretation.
 
 On an internet-connected environment, the validated pilot can be rerun with:
 

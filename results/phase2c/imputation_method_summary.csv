@@ -1,0 +1,6 @@
+imputation_method,n,fraction,median_support_n,median_radius_m
+class_urban_rural_direct_median,2,8.84040418327926e-06,329.0,0.0
+global_median_all_dft,206622,0.9133109965787636,213.0,0.0
+nearby_same_class_direct,38,0.00016796767948230594,7.0,2680.6091020234016
+none,13059,0.057723419114721924,1.0,0.0
+same_road_number_direct,6513,0.028788776222848908,78.0,0.0
