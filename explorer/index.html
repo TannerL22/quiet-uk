@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f7f1">
+  <title>Quiet UK — Find your quieter perspective</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23294339'/%3E%3Cpath d='M8 25Q20 5 32 25M12 28Q20 14 28 28M17 30Q20 25 23 30' fill='none' stroke='%23d9e7bc' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/styles.css">
+  <script src="/vendor/maplibre-gl.js" defer></script><script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#search-input">Skip to place search</a>
+  <header class="header">
+    <a class="brand" href="/" aria-label="Quiet UK home"><svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="12"/><path d="M8 25Q20 5 32 25M12 28Q20 14 28 28M17 30Q20 25 23 30"/></svg><span>quiet<span class="brand-uk">uk</span></span></a>
+    <div class="header-middle"><span class="live-dot"></span> A different way to see a place</div>
+    <nav aria-label="Main"><a href="/pilot" class="text-button">10 m explorer ↗</a><button id="about-button" class="text-button">About the data <span aria-hidden="true">↗</span></button><button id="share-button" class="button outline">Share view <span aria-hidden="true">↗</span></button></nav>
+  </header>
+  <main class="workspace">
+    <aside class="sidebar" aria-label="Explore and inspect places">
+      <div class="sidebar-top">
+        <div class="eyebrow">ROOM TO EXPLORE</div>
+        <h1>A quieter<br><em>perspective.</em></h1>
+        <p class="intro">See the noise around a place.<br>Find space for whatever matters to you.</p>
+        <form id="search-form" role="search">
+          <label class="sr-only" for="search-input">Search for a town, postcode, or latitude, longitude</label>
+          <div class="search-box"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="search-input" autocomplete="off" placeholder="Town, postcode or coordinates"><button type="submit" aria-label="Search places">→</button></div>
+        </form>
+        <p id="search-status" class="search-status" role="status">Place search by OpenStreetMap</p>
+        <div id="search-results" class="search-results" aria-label="Place search results" hidden></div>
+      </div>
+      <div id="sidebar-scroll" class="sidebar-scroll">
+        <section id="welcome" class="welcome">
+          <div class="section-label">START SOMEWHERE</div>
+          <button class="place-preset" data-lon="-1.783" data-lat="53.256" data-zoom="10.4"><span class="place-icon hills" aria-hidden="true">⌁</span><span><strong>The Peak District</strong><small>Valleys, villages & open country</small></span><span aria-hidden="true">↗</span></button>
+          <button class="place-preset" data-lon="-0.132" data-lat="51.51" data-zoom="11.4"><span class="place-icon city" aria-hidden="true">▥</span><span><strong>London</strong><small>A city's quieter corners</small></span><span aria-hidden="true">↗</span></button>
+          <button class="place-preset" data-lon="-2.18" data-lat="55.18" data-zoom="10"><span class="place-icon country" aria-hidden="true">∿</span><span><strong>Northumberland</strong><small>Explore the wider landscape</small></span><span aria-hidden="true">↗</span></button>
+          <div class="guide"><span class="guide-symbol" aria-hidden="true">◎</span><div><strong>Every place has a story.</strong><p>Select anywhere on the map to explore its mapped noise and the evidence behind it.</p></div></div>
+          <div class="scope-note"><span class="live-dot"></span><div><strong>England, for now.</strong><p>Explore the whole UK basemap. Noise evidence currently covers England.</p></div></div>
+        </section>
+        <section id="location-panel" aria-label="Selected location" hidden>
+          <div class="section-label row"><span>YOUR SELECTED PLACE</span><button id="clear-selection" class="icon-button" aria-label="Clear selected location">×</button></div>
+          <h2 id="location-title">Selected location</h2><p id="location-coordinates" class="coordinate-label"></p>
+          <div id="location-loading" role="status" hidden>Reading the evidence for this place…</div>
+          <div id="location-details" hidden>
+            <p class="source-caution">Source evidence, not a total sound reading. Historical periods remain unverified.</p>
+            <div id="aircraft-card" class="noise-card aircraft-card" hidden><div class="eyebrow">MAPPED AIRCRAFT</div><p id="aircraft-value" class="noise-value"></p><p>Reported lower bound in this historical cell. This is a long-term indicator, not the loudest aircraft event.</p><span class="small-chip">Lden configured · source period unverified</span></div>
+            <div id="noise-card" class="noise-card"><div class="eyebrow">MAPPED ROAD + RAIL</div><p id="noise-value" class="noise-value"></p><p id="noise-summary"></p><span id="noise-chip" class="small-chip"></span></div>
+            <div class="evidence-item"><span aria-hidden="true">↗</span><div><strong id="aviation-title"></strong><p id="aviation-summary"></p></div></div>
+            <div class="evidence-item"><span aria-hidden="true">▦</span><div><strong id="resolution-title">A 100 m view</strong><p id="resolution-summary">An area-level indicator, not an individual home or a sound reading right now.</p></div></div>
+            <details class="technical"><summary>What about loud events and quiet periods?</summary><p>This release cannot establish background levels, event maxima, event counts or quiet intervals. Those require temporal observations or validated event modelling. Day/night separation is not available in this historical release either.</p></details>
+            <details class="technical"><summary>Inspect the evidence</summary><dl id="evidence-fields"></dl><p>Qualification checks the source grid and stored data. It does not establish acoustic accuracy.</p></details>
+            <a id="download-location" class="button export-button" download>Download location evidence <span aria-hidden="true">↓</span></a>
+            <p class="export-note">JSON · exact values, quality flags & identity · <a id="view-location-json" target="_blank" rel="noopener">View JSON ↗</a></p>
+          </div>
+          <div id="location-error" class="error-note" role="alert" hidden></div>
+        </section>
+      </div>
+      <footer class="sidebar-footer"><span class="status-mark">EXPLORATORY RELEASE</span><button id="method-button" class="text-button">Methods & provenance →</button></footer>
+    </aside>
+    <section class="map-shell" aria-label="Interactive noise map">
+      <div id="map" aria-label="Interactive map. Use arrow keys to pan, plus and minus to zoom. Search provides a text alternative."></div>
+      <div class="map-heading"><span class="live-dot"></span><span id="map-view-title">Transport evidence</span><span class="pill">England</span></div>
+      <div class="map-actions"><button id="england-button" class="map-button" title="Show England" aria-label="Show England">⌖</button><button id="inspect-center" class="map-button center-button">Inspect map centre</button><button id="return-selection" class="map-button center-button" hidden>Return to selected place</button></div>
+      <div id="map-message" class="map-message" role="status" hidden></div>
+      <div class="map-bottom">
+        <div class="legend">
+          <div class="legend-heading"><strong>Explore the sources</strong><label class="switch-label"><input id="noise-toggle" type="checkbox" checked> Noise layer</label></div>
+          <fieldset class="source-choices"><legend class="sr-only">Noise source view</legend><label><input type="radio" name="source-view" value="both" checked> Together</label><label><input type="radio" name="source-view" value="road_rail"> Road + rail</label><label><input type="radio" name="source-view" value="aircraft"> Aircraft</label></fieldset>
+          <div class="legend-colours" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="legend-ticks"><span>&lt;45</span><span>45–50</span><span>50–55</span><span>55–60</span><span>60–65</span><span>65–70</span><span>70+</span></div>
+          <p><span id="legend-metric">Road/rail upper bound · dB Lden</span> <button id="legend-info" aria-label="Explain noise legend">ⓘ</button></p>
+          <p id="aircraft-key" class="aircraft-key"><i class="aircraft-swatch"></i> Purple hatching: reported aircraft noise</p>
+          <p id="view-explanation" class="view-explanation">Two sources of evidence, not a combined level. No hatching does not rule out aircraft noise.</p>
+          <p id="unreported-key" hidden><i class="unreported-swatch"></i> No reported aircraft energy ≠ silence</p>
+          <div class="legend-footer"><span><i class="unknown-swatch"></i> Unavailable evidence</span><label>Opacity <input id="opacity" aria-label="Noise layer opacity" type="range" min="15" max="95" value="72"></label></div>
+        </div>
+        <div class="map-caption">Long-term mapping. A starting point for discovery.</div>
+      </div>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="about-dialog" aria-labelledby="about-title">
+    <div class="dialog-header"><span class="eyebrow">THE EVIDENCE BEHIND THE MAP</span><button id="close-about" class="icon-button" aria-label="Close data information">×</button></div>
+    <h2 id="about-title">Curiosity, with clarity.</h2>
+    <p class="dialog-lede">A useful map should tell you what it knows — and where the evidence ends.</p>
+    <div class="research-banner"><strong>Exploratory historical baseline</strong><p>This release is not yet a validated research exposure dataset. Its source acquisition linkage and reference periods remain unresolved.</p></div>
+    <h3>What the colour means</h3><p>The default Together view shows road/rail upper-bound colours with purple hatching wherever qualified aircraft energy is reported. The hatching indicates presence, not loudness. It does not add the sources or claim a total exposure level: their historical reference periods and metric linkage remain unresolved.</p>
+    <p>Choose Aircraft to colour the mapped aircraft reported lower bound instead. Beige means no reported aircraft energy, not silence; grey marks withheld or coverage-limited evidence. The road/rail upper and aircraft lower values are different types of bounds, not interchangeable estimates. Roads and railways cannot yet be separated in the published historical bands.</p>
+    <p>Lden is an annual day–evening–night indicator with evening and night penalties. These configured historical values are not measurements of today's sound, total ambient noise or personal exposure.</p>
+    <p>The lowest category includes places the source maps cannot distinguish below their reporting thresholds. A bound near 43 dB does not mean the place actually sounds that loud. Grey hatching marks withheld evidence. Uncoloured places may be outside coverage; they are not automatically quiet.</p>
+    <h3>A map for many questions</h3><p>Explore places, compare surroundings, or investigate a question of your own. Industry, neighbours and natural sounds are not represented. Aircraft evidence is visible by default and separately quantified when reported at your selected place. This release cannot establish background levels, event peaks or frequency, quiet intervals, or separate day/night exposure. The map does not establish public access.</p>
+    <h3>Using the data in research</h3><p>Location downloads preserve stored values and qualifications without inventing precision. A house-price or stress study still needs a traceable source release, appropriate exposure measure and time period, a documented spatial join, and a strategy for censored or missing values. Association does not establish causation.</p>
+    <p>Map colours are display summaries. Zoomed-out values average acoustic energy over qualified support and exclude unavailable cells. Use the analytical data and a specified area-weighting method for research; do not sample colours or average dB values blindly.</p>
+    <dl class="dataset-facts" id="dataset-facts"></dl>
+    <div class="dialog-actions"><a id="download-dataset" class="button" href="/downloads/dataset.json" download>Download dataset record ↓</a><a href="https://www.gov.uk/government/publications/strategic-noise-mapping-2022/explaining-the-2022-noise-maps" target="_blank" rel="noopener">Defra's mapping explanation ↗</a></div>
+    <p class="credits">Configured source products: Defra, Crown copyright, Open Government Licence. Historical acquisition linkage unresolved. England mask derived from ONS boundaries. Basemap: OpenFreeMap / OpenMapTiles / OpenStreetMap. Place searches are sent to OpenStreetMap's Nominatim service only when submitted. Map browsing requests basemap tiles from OpenFreeMap. No analytics or accounts.</p>
+  </dialog>
+  <noscript><p class="fatal">JavaScript is required for the interactive map. Dataset metadata is available at <a href="/api/dataset">/api/dataset</a>.</p></noscript>
+</body>
+</html>

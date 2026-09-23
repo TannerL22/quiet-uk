@@ -15,6 +15,7 @@ from rasterio.warp import transform as transform_coords
 
 from .land_mask import read_tile_land_mask
 from .tiling import TILE_BANDS, Tile, validate_tile_output
+from .validation import semantic_tile_checks
 
 
 TILE_FILENAME = re.compile(r"^(r\d{4}c\d{4})\.tif$")
@@ -126,37 +127,34 @@ def check_tile_layout(tiles: list[Tile], resolution_m: int = 100,
 def check_band_arrays(arrays: np.ndarray, land: np.ndarray,
                       nodata: float = -9999.0,
                       tolerance: float = 1e-5) -> dict:
-    """Return cell-level integrity checks for one four-band tile."""
-    arrays = np.asarray(arrays, dtype="float64")
-    if arrays.shape[0] != 4:
-        raise ValueError("National QA expects four output bands")
-    land = np.asarray(land, dtype=bool)
-    if arrays.shape[1:] != land.shape:
-        raise ValueError("Land mask and tile arrays have different shapes")
+    """Return cell-level integrity checks for a production tile.
 
-    nodata_mask = arrays == nodata
-    finite_non_nodata = np.isfinite(arrays) & ~nodata_mask
-    outside = ~land
-    fraction = arrays[3]
-    fraction_valid = finite_non_nodata[3] & land
-    combined = arrays[0]
-    airport = arrays[2]
-    both = finite_non_nodata[0] & finite_non_nodata[2] & land
-    acoustic_valid = finite_non_nodata[:3] & land[None, :, :]
-    impossible_acoustic = acoustic_valid & ((arrays[:3] < 0.0) | (arrays[:3] > 150.0))
+    The public keys are retained for existing national QA consumers. The
+    shared validator also accepts the optional fifth combined-upper band.
+    """
+    arrays = np.asarray(arrays, dtype="float64")
+    names = list(TILE_BANDS)
+    if arrays.shape[0] == 5:
+        names.append("combined_upper_db")
+    checks = semantic_tile_checks(
+        arrays, land, nodata=nodata, band_names=names, tolerance=tolerance
+    )
+    land = np.asarray(land, dtype=bool)
+    finite_non_nodata = np.isfinite(arrays) & (arrays != nodata)
+    road_valid = finite_non_nodata[1] & land
     return {
-        "outside_is_nodata": bool(np.all(nodata_mask[:, outside])),
-        "outside_non_nodata_cells": int(np.sum(~nodata_mask[:, outside])),
-        "fraction_in_range": bool(np.all((fraction[fraction_valid] >= -tolerance) & (fraction[fraction_valid] <= 1 + tolerance))),
-        "fraction_invalid_cells": int(np.sum(land & ~fraction_valid)),
-        "fraction_zero_with_airport_reported": int(np.sum(land & (fraction == 0.0) & finite_non_nodata[2])),
-        "combined_lower_ge_airport_lower": bool(np.all(combined[both] + tolerance >= airport[both])),
-        "combined_below_airport_cells": int(np.sum(both & (combined + tolerance < airport))),
-        "inf_cells": int(np.sum(~np.isfinite(arrays))),
-        "sentinel_in_land_cells": int(np.sum(nodata_mask[:, land])),
-        "valid_zero_acoustic_cells": int(np.sum(acoustic_valid & (arrays[:3] == 0.0))),
-        "impossible_acoustic_cells": int(np.sum(impossible_acoustic)),
-        "road_rail_upper_min": float(np.min(arrays[1][finite_non_nodata[1] & land])) if np.any(finite_non_nodata[1] & land) else None,
+        "outside_is_nodata": checks["outside_is_nodata"],
+        "outside_non_nodata_cells": checks["outside_non_nodata_cells"],
+        "fraction_in_range": checks["fraction_in_range"],
+        "fraction_invalid_cells": checks["fraction_invalid_cells"],
+        "fraction_zero_with_airport_reported": checks["fraction_zero_with_airport_reported"],
+        "combined_lower_ge_airport_lower": checks["combined_lower_ge_airport_lower"],
+        "combined_below_airport_cells": checks["combined_below_airport_cells"],
+        "inf_cells": checks["nonfinite_cells"],
+        "sentinel_in_land_cells": checks["sentinel_in_land_cells"],
+        "valid_zero_acoustic_cells": checks["valid_zero_acoustic_cells"],
+        "impossible_acoustic_cells": checks["impossible_acoustic_cells"],
+        "road_rail_upper_min": float(np.min(arrays[1][road_valid])) if np.any(road_valid) else None,
     }
 
 

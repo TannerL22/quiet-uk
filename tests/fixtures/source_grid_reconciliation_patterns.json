@@ -1,0 +1,71 @@
+{
+  "fixture_type": "metadata-derived source-grid geometry, not independent acoustic observations",
+  "derived_from": "data/processed/england/tile_status_manifest.json",
+  "patterns": [
+    {
+      "source": "road",
+      "tile_id": "r0063c0000",
+      "target_bbox_epsg27700": [82600, 17600, 92600, 27600],
+      "target_shape": [1000, 1000],
+      "pattern": "west-edge clipping with fixed dimensions and rescaled x resolution",
+      "raw_grid": {
+        "shape": [1000, 1000],
+        "crs": "EPSG:27700",
+        "transform": [9.955, 0.0, 82645.0, 0.0, -10.0, 27600.0, 0.0, 0.0, 1.0],
+        "bounds": [82645.0, 17600.0, 92600.0, 27600.0]
+      }
+    },
+    {
+      "source": "road",
+      "tile_id": "r0065c0000",
+      "target_bbox_epsg27700": [82600, 5300, 92600, 7600],
+      "target_shape": [230, 1000],
+      "pattern": "west-and-south edge clipping with fixed dimensions and rescaled x/y resolution",
+      "raw_grid": {
+        "shape": [230, 1000],
+        "crs": "EPSG:27700",
+        "transform": [9.955, 0.0, 82645.0, 0.0, -9.847826086956522, 7600.0, 0.0, 0.0, 1.0],
+        "bounds": [82645.0, 5335.0, 92600.0, 7600.0]
+      }
+    },
+    {
+      "source": "airport",
+      "tile_id": "r0008c0025",
+      "target_bbox_epsg27700": [332600, 567600, 342600, 577600],
+      "target_shape": [1000, 1000],
+      "pattern": "west-and-north domain clipping with fixed 1001x1001 dimensions and rescaled x/y resolution",
+      "raw_grid": {
+        "shape": [1001, 1001],
+        "crs": "EPSG:27700",
+        "transform": [9.11088911088911, 0.0, 333485.0, 0.0, -6.683316683316684, 574285.0, 0.0, 0.0, 1.0],
+        "bounds": [333485.0, 567595.0, 342605.0, 574285.0]
+      }
+    },
+    {
+      "source": "airport",
+      "tile_id": "r0031c0051",
+      "target_bbox_epsg27700": [592600, 337600, 602600, 347600],
+      "target_shape": [1000, 1000],
+      "pattern": "east domain clipping with fixed 1001x1001 dimensions and rescaled x resolution",
+      "raw_grid": {
+        "shape": [1001, 1001],
+        "crs": "EPSG:27700",
+        "transform": [1.8681318681318682, 0.0, 592595.0, 0.0, -10.0, 347605.0, 0.0, 0.0, 1.0],
+        "bounds": [592595.0, 337595.0, 594465.0, 347605.0]
+      }
+    },
+    {
+      "source": "airport",
+      "tile_id": "r0056c0026",
+      "target_bbox_epsg27700": [342600, 87600, 352600, 97600],
+      "target_shape": [1000, 1000],
+      "pattern": "south domain clipping with fixed 1001x1001 dimensions and rescaled y resolution",
+      "raw_grid": {
+        "shape": [1001, 1001],
+        "crs": "EPSG:27700",
+        "transform": [10.0, 0.0, 342595.0, 0.0, -3.786213786213786, 97605.0, 0.0, 0.0, 1.0],
+        "bounds": [342595.0, 93815.0, 352605.0, 97605.0]
+      }
+    }
+  ]
+}

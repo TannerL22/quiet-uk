@@ -1,4 +1,76 @@
-# Quiet UK — England anthropogenic noise pipeline
+# Quiet UK — an explorer for quieter and louder places
+
+Quiet UK is a general-purpose map for understanding mapped environmental noise.
+Homes, walks, travel and research are possible uses of the same product.
+
+**Current phase, 23 September 2026:** a working local England explorer with a
+geographic basemap, place/postcode or coordinate search, nationwide road/rail
+display, visible aircraft evidence, source-view controls, exact 100 m cell inspection, shareable local views,
+and downloadable location/dataset records. Wider UK noise coverage is not yet
+implemented. The historical data is explicitly provisional; this is not yet an
+independently validated research exposure release.
+
+The **10 m explorer** adds fresh, source-linked data for four 10 × 10 km areas
+around Heathrow, Didcot, Oxford and the Chilterns (400 km²). It separates road,
+rail and aircraft with day/night/Lden controls, place search, point comparisons,
+and a downloadable evidence bundle. [Regional release and verification](notes/SOURCE_REGIONAL_RELEASE.md).
+
+## Open the explorer
+
+On Windows, double-click **Launch Quiet UK.cmd** in this repository folder
+(the existing shortcut in the containing folder also works). It starts the local server in the background, waits
+until it is ready, and opens your default browser. Repeated launches reuse the
+running release. Startup logs are saved under `artifacts/launcher`.
+
+From this directory on the existing Windows environment:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\29_serve_explorer.py
+```
+
+Open **http://127.0.0.1:8766/**. The first launch builds derived display assets
+from the existing catalogue, mask and tiles; subsequent launches verify and
+reuse them. The scientific inputs are not rebuilt or overwritten. An incomplete
+or incompatible display directory is rejected; use `--display` with a new path
+to publish a new generation. An existing data checkout is required; a source-only
+clone does not contain the historical rasters.
+
+Git tracks the application, tests, dependency lock and documentation. Downloaded
+rasters, generated `artifacts/` (including catalogues, display assets and evidence
+bundles), local configuration and Python environments remain outside Git. Updating
+or cloning this repository is not a backup or restoration of those data products.
+See [environment setup](notes/REPRODUCIBLE_ENVIRONMENT.md) and
+[regional acquisition and verification](notes/SOURCE_REGIONAL_RELEASE.md) for
+reproduction instructions.
+
+The basemap needs internet access to OpenFreeMap. Submitted place searches use
+OpenStreetMap Nominatim; coordinate searches and analytical lookups are local.
+Try `53.256, -1.783` for an offline coordinate search. Shared links preserve the
+view and dataset version, but this loopback preview is accessible only on the
+same computer. No public deployment has been made.
+
+The default **Together** view overlays purple aircraft-presence hatching on
+road/rail upper-bound colours. **Aircraft** shows its reported lower-bound colours;
+**Road + rail** hides aircraft and explicitly warns about that omission. These
+are separate historical evidence layers, not a validated numerical total. Road
+and rail are still combined in the historical output. Display generation v4 uses
+contract version 2 and does not overwrite earlier display generations.
+
+| Present | Still ahead |
+|---|---|
+| England road/rail map and source-qualified point inspection | Wales, Scotland and Northern Ireland noise integration |
+| Versioned assets, source-linked regional data and evidence exports | National source-linked construction and independent validation |
+| Clear floor ties, withheld values and aircraft limitations | Defensible distinctions between below-threshold quiet places |
+| Responsive explorer, local-view sharing and data explanation | Place comparisons, saved collections and optional context layers |
+
+**Start here:** [Source views and temporal foundation](notes/SOURCE_VIEWS_AND_TEMPORAL_FOUNDATION.md),
+[Original explorer implementation](notes/EXPLORER_PHASE1.md),
+[research data contract](notes/RESEARCH_DATA_CONTRACT.md),
+[active roadmap](notes/ACTIVE_ROADMAP.md).
+The 18 September product review and older phase reports are historical evidence;
+the active roadmap is the current delivery plan.
+
+## Existing scientific pipeline
 
 A reproducible pipeline for building a fine-resolution map of **modelled anthropogenic environmental noise** in England using Defra Round 4 strategic noise mapping.
 
@@ -73,13 +145,18 @@ Later versions can add access, terrain, roads, settlements, national parks, wood
 
 ## Setup
 
-Python 3.11+ is recommended.
+Python 3.12+ is required by the current dependency family. The exact tested Windows environment uses Python 3.14.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
 ```
+
+`requirements.txt` delegates to the runtime dependencies in `pyproject.toml`. For the
+full test/development environment, install the package with `pip install -e ".[dev]"`.
+The exact tested Windows CPython 3.14 x64 environment and its wheel verification
+commands are recorded in `notes/REPRODUCIBLE_ENVIRONMENT.md`.
 
 ## One-command live pilot
 
@@ -127,7 +204,10 @@ The England Phase 1 production run has 1,498 complete 10 km tiles and 13,086,924
 
 ## Phase 1 England national build
 
-The national Phase 1 build is complete and remains reproducible from the production runner and manifests. Its validated workflow is:
+The historical national tile build is complete. Its acquisition linkage remains
+unresolved and its legacy manifest cannot be resumed by the hardened runner.
+The following is the original intended pipeline, not a checklist of completed
+release products:
 
 1. tile the England extent,
 2. download source rasters in manageable chunks,
@@ -140,7 +220,12 @@ The national Phase 1 build is complete and remains reproducible from the product
 9. calculate conservative national quiet-candidate rankings,
 10. publish web tiles / PMTiles in MapLibre.
 
-The final two steps are downstream products, not part of the frozen acoustic raster validation. Do not start a national Phase 2 road reconstruction from the Phase 2C research outputs without independent sub-threshold validation.
+The actual frozen national product has four bands: combined reported lower,
+road/rail upper, airport reported lower, and airport reported fraction. It has
+no all-source upper bound or national quietness rank. The current explorer uses
+a separate qualified energy-display raster and bounded raster tiles; it does
+not use the old full-memory mosaic helper. Do not start a national Phase 2 road
+reconstruction from research outputs without independent sub-threshold validation.
 
 ## Phase 2: resolving the truly quiet places
 

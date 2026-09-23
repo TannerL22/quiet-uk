@@ -45,7 +45,8 @@ def main() -> None:
     parser.add_argument("--resume-test", action="store_true")
     args = parser.parse_args()
     config = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
-    mask_path = ROOT / config["england_mask_100m_path"]
+    mask_path = (ROOT / config["england_mask_100m_path"]).resolve()
+    config["england_mask_100m_path"] = str(mask_path)
     tiles = plan_england_tiles(config, mask_path)
     selected = []
     selection = []

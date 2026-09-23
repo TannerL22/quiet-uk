@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from typing import Iterable
 import requests
 
@@ -17,15 +18,55 @@ def discover_coverages(url: str, versions=("1.0.0", "2.0.1"), timeout=60):
     return {"version": None, "identifiers": [], "errors": errors}
 
 
+_LDEN_TOKEN = re.compile(r"(?:^|[_:-])l(?:den|[_:-]+den)(?=$|[_:-])", re.IGNORECASE)
+_SEPARATOR_SPLIT = re.compile(r"[_:-]+")
+_SOURCE_ALIASES = {
+    "road": {"road", "roads"},
+    "rail": {"rail", "rails", "railway", "railways"},
+    "airport": {"airport", "airports", "aviation"},
+}
+
+
+def _identifier_tokens(identifier: str) -> set[str]:
+    return {token for token in _SEPARATOR_SPLIT.split(identifier.lower()) if token}
+
+
+def _is_lden_identifier(identifier: str) -> bool:
+    """Recognise only the documented Lden spellings at token boundaries."""
+    return bool(_LDEN_TOKEN.search(identifier))
+
+
+def _explicit_source_families(identifier: str) -> set[str]:
+    tokens = _identifier_tokens(identifier)
+    return {
+        family
+        for family, aliases in _SOURCE_ALIASES.items()
+        if tokens & aliases
+    }
+
+
+def _canonical_source_family(source: str | None) -> str | None:
+    if source is None:
+        return None
+    source = source.lower()
+    if source in _SOURCE_ALIASES:
+        return source
+    return next(
+        (family for family, aliases in _SOURCE_ALIASES.items() if source in aliases),
+        source,
+    )
+
+
 def score_lden_identifier(identifier: str, source: str | None = None) -> int:
-    """Heuristic score for selecting an all-source Lden coverage."""
+    """Heuristic score for an already eligible Lden coverage."""
     s = identifier.lower()
+    tokens = _identifier_tokens(identifier)
     score = 0
-    if "lden" in s or "l_den" in s or "l-den" in s:
+    if _is_lden_identifier(identifier):
         score += 100
-    if "all" in s:
+    if "all" in tokens:
         score += 20
-    if source and source.lower() in s:
+    if _canonical_source_family(source) in _explicit_source_families(identifier):
         score += 10
     # Prefer ordinary A-weighted metric over octave-band/frequency coverages.
     if any(x in s for x in ("octave", "63hz", "125hz", "250hz", "500hz", "1khz", "2khz", "4khz", "8khz")):
@@ -39,8 +80,28 @@ def choose_lden_identifier(identifiers: Iterable[str], source: str | None = None
     ids = list(identifiers)
     if not ids:
         return None
-    ranked = sorted(ids, key=lambda x: score_lden_identifier(x, source), reverse=True)
-    return ranked[0] if score_lden_identifier(ranked[0], source) > 0 else None
+    eligible = []
+    for identifier in ids:
+        if not _is_lden_identifier(identifier):
+            continue
+        if source:
+            requested_family = _canonical_source_family(source)
+            if _explicit_source_families(identifier) - {requested_family}:
+                continue
+        if identifier not in eligible:
+            eligible.append(identifier)
+    if not eligible:
+        return None
+
+    scores = {identifier: score_lden_identifier(identifier, source) for identifier in eligible}
+    highest = max(scores.values())
+    tied = sorted(identifier for identifier, score in scores.items() if score == highest)
+    if len(tied) > 1:
+        raise ValueError(
+            "Ambiguous Lden coverage selection: equally preferred identifiers "
+            f"are {tied}"
+        )
+    return tied[0]
 
 
 def get_coverage_wcs10(url: str, coverage_id: str, bbox, width: int, height: int,

@@ -15,18 +15,26 @@ from .acoustics import (
     combine_censored_sources,
     db_to_energy,
 )
+from .config import normalize_production_config
 from .land_mask import read_tile_land_mask
-from .raster import align_array_to_grid, grids_match, read_single_band_db
+from .raster import align_array_to_grid, align_support_to_grid, read_single_band_db
+from .source_grid import (
+    GRID_POLICY_VERSION,
+    target_pixel_centres_mask,
+    validate_source_grid,
+)
+from .validation import (
+    DEFAULT_NODATA,
+    STANDARD_TILE_BANDS,
+    expected_band_schema,
+    validate_production_arrays,
+)
 from .wcs import get_coverage
 
 
 SOURCES = ("road", "rail", "airport")
-TILE_BANDS = (
-    "combined_reported_lower_db",
-    "road_rail_upper_db",
-    "airport_reported_lower_db",
-    "airport_reported_fraction",
-)
+# Kept as a public alias for existing scripts and consumers.
+TILE_BANDS = STANDARD_TILE_BANDS
 
 
 @dataclass(frozen=True)
@@ -185,12 +193,53 @@ def _load_source_for_tile(source: str, tile: Tile, config: dict,
                           target_grid: dict, temp_dir: Path):
     url, coverage_id, version, format_ = _source_config(config, source)
     coverage_bounds = config.get("coverage_bounds_epsg27700", {}).get(source)
-    if coverage_bounds is not None and _bbox_intersection(tile.bbox, coverage_bounds) is None:
-        return np.full(tile.source_shape, np.nan, dtype="float64"), {
-            "skipped_outside_declared_coverage": True,
-            "declared_coverage_bounds": list(coverage_bounds),
-            "valid_cells_after_alignment": 0,
-        }
+    if coverage_bounds is None:
+        coverage_mask = np.ones(target_grid["shape"], dtype=bool)
+        coverage_status = "not_declared"
+        outside_coverage_cells = 0
+    else:
+        coverage_mask = target_pixel_centres_mask(target_grid, coverage_bounds)
+        inside_coverage_cells = int(coverage_mask.sum())
+        outside_coverage_cells = int(coverage_mask.size - inside_coverage_cells)
+        if inside_coverage_cells == 0:
+            if source == "airport":
+                return np.full(tile.source_shape, np.nan, dtype="float64"), {
+                    "skipped_outside_declared_coverage": True,
+                    "coverage_status": "outside_declared_coverage",
+                    "declared_coverage_bounds": list(coverage_bounds),
+                    "inside_declared_coverage_cells": 0,
+                    "outside_declared_coverage_cells": outside_coverage_cells,
+                    "target_cells_without_geometric_support": 0,
+                    "geometric_support_cells": 0,
+                    "grid_policy": {
+                        "name": "airport-declared-coverage-skip",
+                        "version": GRID_POLICY_VERSION,
+                    },
+                    "grid_policy_name": "airport-declared-coverage-skip",
+                    "grid_policy_version": GRID_POLICY_VERSION,
+                    "alignment_occurred": False,
+                    "alignment_reason": "airport request skipped because no target pixel centres are inside declared coverage",
+                    "alignment": {
+                        "performed": False,
+                        "method": None,
+                        "reason": "request skipped outside declared coverage",
+                    },
+                    "read_diagnostics": {
+                        "provider_nodata_policy": "no source requested; outside declared coverage is not an inaudible result",
+                    },
+                    "valid_cells_after_alignment": 0,
+                }
+            raise ValueError(
+                f"Declared {source} coverage excludes every target pixel centre for tile {tile.tile_id}; "
+                "road/rail outside-domain cells cannot support the finite upper-bound contract"
+            )
+        coverage_status = "inside_declared_coverage" if outside_coverage_cells == 0 else "partially_outside_declared_coverage"
+        if source in ("road", "rail") and outside_coverage_cells:
+            raise ValueError(
+                f"Declared {source} coverage excludes {outside_coverage_cells} target pixel centres "
+                f"for tile {tile.tile_id}; incomplete road/rail domain cannot support the finite upper-bound contract"
+            )
+
     width = tile.source_shape[1]
     height = tile.source_shape[0]
     data = get_coverage(
@@ -207,22 +256,74 @@ def _load_source_for_tile(source: str, tile: Tile, config: dict,
     raw_path = temp_dir / f"{source}.tif"
     raw_path.write_bytes(data)
     with rasterio.open(raw_path) as dataset:
-        array, read_diagnostics = read_single_band_db(dataset)
         raw_grid = _dataset_grid(dataset)
-    if grids_match(raw_grid, target_grid):
-        aligned = array
-        alignment = {"performed": False, "method": None}
-    else:
+        grid_decision = validate_source_grid(
+            source,
+            tile.tile_id,
+            target_grid,
+            raw_grid,
+            version,
+            declared_bounds=coverage_bounds,
+        )
+        try:
+            array, read_diagnostics = read_single_band_db(dataset)
+        except ValueError as exc:
+            raise ValueError(
+                f"Source {source} tile {tile.tile_id} decoding failed: {exc}"
+            ) from exc
+
+    if grid_decision["alignment_required"]:
+        support = align_support_to_grid(raw_grid, target_grid)
         aligned = align_array_to_grid(array, raw_grid, target_grid)
         alignment = {
             "performed": True,
-            "method": "nearest-neighbour reproject to tile reference grid",
+            "method": "nearest-neighbour reproject within named source-grid policy",
+            "reason": grid_decision["alignment_reason"],
             "source_grid": raw_grid,
             "target_grid": target_grid,
         }
+    else:
+        support = np.ones(target_grid["shape"], dtype=bool)
+        aligned = array
+        alignment = {
+            "performed": False,
+            "method": None,
+            "reason": grid_decision["alignment_reason"],
+        }
+
+    missing_support = ~support
+    missing_support_in_domain = missing_support & coverage_mask
+    if missing_support_in_domain.any():
+        raise ValueError(
+            f"Source {source} tile {tile.tile_id} under policy {grid_decision['policy_name']} "
+            f"v{grid_decision['policy_version']} lacks geometric support for "
+            f"{int(missing_support_in_domain.sum())} target cells inside expected coverage; "
+            "missing footprint cannot be treated as censored acoustic energy"
+        )
+    finite_outside_coverage = np.isfinite(aligned) & ~coverage_mask
+    if finite_outside_coverage.any():
+        raise ValueError(
+            f"Source {source} tile {tile.tile_id} reports {int(finite_outside_coverage.sum())} "
+            "finite cells outside declared coverage; provider metadata contradicts the response"
+        )
+
     return aligned, {
         "raw_grid": raw_grid,
         "alignment": alignment,
+        "alignment_occurred": bool(alignment["performed"]),
+        "alignment_reason": grid_decision["alignment_reason"],
+        "grid_policy": {
+            "name": grid_decision["policy_name"],
+            "version": grid_decision["policy_version"],
+        },
+        "grid_policy_name": grid_decision["policy_name"],
+        "grid_policy_version": grid_decision["policy_version"],
+        "coverage_status": coverage_status,
+        "declared_coverage_bounds": None if coverage_bounds is None else list(coverage_bounds),
+        "inside_declared_coverage_cells": int(coverage_mask.sum()),
+        "outside_declared_coverage_cells": outside_coverage_cells,
+        "target_cells_without_geometric_support": int(missing_support.sum()),
+        "geometric_support_cells": int(support.sum()),
         "read_diagnostics": read_diagnostics,
         "valid_cells_after_alignment": int(np.isfinite(aligned).sum()),
     }
@@ -257,10 +358,17 @@ def _write_float_bands(path: Path, arrays: list[np.ndarray], names: list[str],
 def validate_tile_output(path: str | Path, tile: Tile, config: dict,
                          expected_bands: list[str] | None = None) -> dict:
     """Validate a completed 100 m tile before it can become resumable state."""
+    config = normalize_production_config(config, require_mask=False)
     path = Path(path)
     if not path.exists() or path.stat().st_size == 0:
         raise ValueError(f"Tile output is missing or empty: {path}")
-    expected_bands = expected_bands or list(TILE_BANDS)
+    configured_bands = expected_band_schema(config)
+    if expected_bands is not None and list(expected_bands) != configured_bands:
+        raise ValueError(
+            "Stored or supplied tile band schema is incompatible with current configuration: "
+            f"expected {configured_bands}, got {list(expected_bands)}"
+        )
+    expected_bands = configured_bands
     with rasterio.open(path) as dataset:
         if dataset.count != len(expected_bands):
             raise ValueError(f"Expected {len(expected_bands)} bands, got {dataset.count}")
@@ -277,22 +385,35 @@ def validate_tile_output(path: str | Path, tile: Tile, config: dict,
         if not np.allclose(tuple(dataset.transform), tuple(expected_transform), rtol=0.0, atol=1e-6):
             raise ValueError("Tile transform is not aligned to the exact core bounds")
         arrays = dataset.read().astype("float64")
-        nodata = dataset.nodata if dataset.nodata is not None else -9999.0
+        if dataset.nodata is None or not np.isclose(dataset.nodata, DEFAULT_NODATA, rtol=0.0, atol=0.0):
+            raise ValueError(
+                f"Tile nodata must use the production sentinel {DEFAULT_NODATA:g}; "
+                f"got {dataset.nodata!r}"
+            )
+        nodata = float(dataset.nodata)
     land_mask_path = config.get("england_mask_100m_path")
-    land = None
-    outside_cells = 0
     if land_mask_path:
         land = read_tile_land_mask(land_mask_path, tile.bbox, tile.output_shape)
-        outside_cells = int((~land).sum())
-        if outside_cells and np.any(arrays[:, ~land] > nodata + 1e-6):
-            raise ValueError("Tile contains non-nodata values outside the England land mask")
+    else:
+        # A missing mask is not an exemption: validate the complete tile.
+        land = np.ones(tile.output_shape, dtype=bool)
+    land_cells = int(land.sum()) if land_mask_path else None
+    outside_cells = int((~land).sum())
+    semantic_checks = validate_production_arrays(
+        arrays,
+        land,
+        nodata=nodata,
+        band_names=expected_bands,
+        config=config,
+    )
     return {
         "valid": True,
         "path": str(path),
         "bands": expected_bands,
         "shape": list(tile.output_shape),
-        "land_cells": int(land.sum()) if land is not None else None,
+        "land_cells": land_cells,
         "outside_masked_cells": outside_cells,
+        "semantic_checks": semantic_checks,
     }
 
 
@@ -304,8 +425,9 @@ def process_tile(tile: Tile, config: dict, output_path: str | Path,
     after the validated 100 m tile is written. The output deliberately omits a
     total combined upper bound when the airport threshold is not configured.
     """
-    source_resolution = int(config.get("pilot_resolution_m", tile.source_resolution_m))
-    output_resolution = int(config.get("output_resolution_m", tile.output_resolution_m))
+    config = normalize_production_config(config, require_mask=False)
+    source_resolution = config["pilot_resolution_m"]
+    output_resolution = config["output_resolution_m"]
     if source_resolution != tile.source_resolution_m or output_resolution != tile.output_resolution_m:
         raise ValueError("Tile resolution does not match configuration")
     if output_resolution % source_resolution:

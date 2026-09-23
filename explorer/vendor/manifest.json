@@ -1,0 +1,18 @@
+{
+  "package": "maplibre-gl",
+  "version": "5.24.0",
+  "files": {
+    "maplibre-gl.js": {
+      "url": "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js",
+      "sha256": "45a9b07a9189ce56054c620a947ccf41e291e58c95e9b61533b740aaa65ee5cb"
+    },
+    "maplibre-gl.css": {
+      "url": "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css",
+      "sha256": "ab1e70d59ec40465bae7e7030da2f3ccf28133fd502e62bd598eefbadfd7a732"
+    },
+    "LICENSE.txt": {
+      "url": "https://unpkg.com/maplibre-gl@5.24.0/LICENSE.txt",
+      "sha256": "ee5fc05a0677eaf69601d2c7db0d9ecd6cc27c3abc1d0733bc9ed34707cf8ef2"
+    }
+  }
+}
