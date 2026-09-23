@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quiet UK candidate inspection</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div>
+        <p class="eyebrow">Local read-only inspection</p>
+        <h1>Candidate screening outputs</h1>
+        <p class="lede">Review the retained road/rail screening components and their actual cell footprints.</p>
+      </div>
+      <div class="header-status" id="header-status">Loading candidate outputs…</div>
+    </header>
+
+    <main>
+      <section class="notice error" id="error" role="alert" hidden></section>
+      <div id="app" hidden>
+        <section class="summary-grid" aria-label="Screening summary">
+          <article class="summary-card"><span>Run</span><strong id="summary-run">—</strong></article>
+          <article class="summary-card"><span>Retained components</span><strong id="summary-components">—</strong></article>
+          <article class="summary-card"><span>Retained cells</span><strong id="summary-cells">—</strong></article>
+          <article class="summary-card"><span>Requested cells</span><strong id="summary-requested">—</strong></article>
+          <article class="summary-card"><span>Upper threshold</span><strong id="summary-threshold">—</strong></article>
+          <article class="summary-card"><span>Minimum component</span><strong id="summary-minimum">—</strong></article>
+        </section>
+
+        <section class="scope-note" aria-label="Scope and limitations">
+          <strong>Scope:</strong> the coloured footprints are screened and retained eligible cells inside the requested BNG rectangle. The outline marks the full request. The candidate-only outputs do not identify every excluded cell, so this viewer does not invent an excluded-cell layer.
+        </section>
+
+        <section class="workspace" aria-label="Candidate map and list">
+          <aside class="component-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Selection</p>
+                <h2>Area order</h2>
+              </div>
+              <span class="muted" id="list-count">—</span>
+            </div>
+            <p class="panel-help">Select a component to highlight its footprint and inspect its recorded fields.</p>
+            <ol class="component-list" id="component-list"></ol>
+            <div class="list-pager" aria-label="Component list pages">
+              <button type="button" class="pager-button" id="list-previous">Previous</button>
+              <span class="muted" id="list-page">—</span>
+              <button type="button" class="pager-button" id="list-next">Next</button>
+            </div>
+          </aside>
+
+          <section class="map-panel" aria-label="Candidate footprint map">
+            <div class="map-toolbar">
+              <div>
+                <p class="eyebrow">Footprints</p>
+                <h2>Requested area and retained cells</h2>
+              </div>
+              <span class="map-mode">Local SVG view · no basemap</span>
+            </div>
+            <div class="map-frame">
+              <svg id="map" viewBox="0 0 1000 700" preserveAspectRatio="none" role="img" aria-label="Candidate component footprints and requested bounding box">
+                <rect class="map-background" x="0" y="0" width="1000" height="700"></rect>
+                <g id="request-layer" aria-label="Requested BNG rectangle"></g>
+                <g id="footprints" aria-label="Retained candidate footprints"></g>
+                <g id="representatives" aria-label="Representative BNG points"></g>
+                <g id="map-annotations" aria-label="Map orientation and scale"></g>
+              </svg>
+              <div class="map-progress" id="map-progress" role="status" hidden></div>
+            </div>
+            <div class="map-key" aria-label="Map key">
+              <span><i class="key-box request-key"></i> requested BNG rectangle</span>
+              <span><i class="key-box footprint-key"></i> retained candidate footprint</span>
+              <span><i class="key-box selected-key"></i> selected component</span>
+            </div>
+          </section>
+        </section>
+
+        <section class="details-panel" aria-live="polite" aria-label="Selected component details">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Component detail</p>
+              <h2 id="detail-title">Select a component</h2>
+            </div>
+            <span class="detail-badge" id="detail-order">—</span>
+          </div>
+          <div id="detail-content" class="detail-content"></div>
+        </section>
+
+        <footer class="footer-note">
+          <span>Public access status: <code id="public-access">—</code></span>
+          <span>Historical acquisition linkage: <code id="historical-linkage">—</code></span>
+          <span>Data join: matching run and component IDs required before display</span>
+        </footer>
+      </div>
+      <noscript><p class="notice error">This viewer needs JavaScript enabled to validate and display the local outputs.</p></noscript>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

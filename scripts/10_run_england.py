@@ -16,6 +16,14 @@ sys.path.insert(0, str(ROOT / "src"))
 from quiet_uk.runner import run_batch
 
 
+def _resolve_project_mask(config: dict) -> tuple[dict, Path]:
+    """Resolve the configured mask relative to the project root for the runner."""
+    effective = dict(config)
+    mask_path = (ROOT / effective["england_mask_100m_path"]).resolve()
+    effective["england_mask_100m_path"] = str(mask_path)
+    return effective, mask_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="config.json")
@@ -27,11 +35,12 @@ def main() -> None:
     parser.add_argument("--tile-id", action="append", dest="tile_ids")
     args = parser.parse_args()
     config = json.loads((ROOT / args.config).read_text(encoding="utf-8"))
+    config, mask_path = _resolve_project_mask(config)
     result = run_batch(
         config,
         ROOT / args.output_root,
         ROOT / args.manifest,
-        ROOT / config["england_mask_100m_path"],
+        mask_path,
         tile_ids=args.tile_ids,
         failed_only=args.failed_only,
         limit=args.limit,

@@ -1,0 +1,94 @@
+{
+  "review_date": "2026-09-18",
+  "scope": "Current local working tree, including uncommitted work. No application or scientific-data changes.",
+  "repository_head": "7359a0e",
+  "test_run": {
+    "command": ".\\.venv\\Scripts\\python.exe -m pytest -q",
+    "passed": 345,
+    "skipped": 2,
+    "elapsed_seconds": 45.09,
+    "scope": "Source-tree test suite; not independent acoustic validation or fresh wheel verification."
+  },
+  "fresh_tile_scan": {
+    "root": "data/processed/england/tiles",
+    "files": 1498,
+    "manifest_complete_entries": 1498,
+    "compressed_file_bytes": 66162087,
+    "band_schema_occurrences": 1498,
+    "bands": [
+      "combined_reported_lower_db",
+      "road_rail_upper_db",
+      "airport_reported_lower_db",
+      "airport_reported_fraction"
+    ],
+    "road_rail_finite_non_nodata_cells": 13086924,
+    "floor_formula": "10 * log10(2 * 10**4)",
+    "floor_tolerance_db": 0.00001,
+    "floor_relative_tolerance": 0,
+    "floor_tied_stored_cells": 5055564,
+    "floor_tied_percent": 38.63065148082162,
+    "limitation": "Read band 2 and schema of every current tile. Counts are before qualification filtering. Did not repeat full national semantic/mask/provenance validation."
+  },
+  "catalogue_smoke_checks": {
+    "catalogue": "artifacts/england_catalogue_v3",
+    "build_id": "304d0ae422a84bebb83bcb7a7379e236",
+    "land_mask": "data/processed/england_mask/england_100m_mask.tif",
+    "method": "DatasetCatalogue.lookup with explicit tile root and land mask; read-only.",
+    "observations": [
+      {"bng": [414550, 567550], "tile": "r0009c0033", "land_status": "england_land", "result": "All four bands qualified; road/rail upper 58.1380615234375 dB; airport lower 44.09441375732422 dB."},
+      {"bng": [341650, 576450], "tile": "r0008c0025", "land_status": "england_land", "result": "Airport-dependent bands withheld; road/rail upper qualified at 43.01029968261719 dB."},
+      {"bng": [391150, 649650], "tile": "r0000c0030", "land_status": "england_land", "result": "Airport coverage limitation; zero reported fraction explicitly not silence; road/rail upper qualified."},
+      {"bng": [382650, 657550], "tile": "r0000c0030", "land_status": "outside_england_land", "result": "All values unavailable."},
+      {"bng": [82599, 331450], "tile": null, "land_status": "no_dataset_coverage", "result": "All values unavailable."}
+    ]
+  },
+  "browser_review": {
+    "fresh_launch": ".\\.venv\\Scripts\\python.exe scripts/24_serve_candidate_viewer.py --port 8876",
+    "surface": "Codex in-app browser; actual localhost viewer",
+    "components_loaded": 128,
+    "initial_component": "candidate-ad5559ef81d29e33dc302559",
+    "selected_component": "candidate-30fb9533d0f209529667ff7e",
+    "selected_cells": 926,
+    "selected_area_km2": 9.26,
+    "observations": [
+      "Fresh visual inspection of viewer layout and initial viewport.",
+      "Selecting the second candidate updated the details to the matching ID and area.",
+      "Technical summary precedes the map; no basemap, geographic search, continuous noise layer or pan/zoom controls.",
+      "Airport finite/censored table is fraction availability, not lower-bound availability."
+    ],
+    "prior_narrow_evidence_inspected": "artifacts/candidate_viewer_verification_v1/pilot-narrow.png",
+    "prior_narrow_dimensions": [620, 900],
+    "limitation": "Did not rerun the complete browser harness or conduct a fresh physical mobile-device/accessibility audit."
+  },
+  "research_reproduction": {
+    "function": "quiet_uk.phase2c_road.build_phase2c_features",
+    "receptor_bng_example": [0, 0],
+    "whole_line": [[0, 100], [10000, 100]],
+    "split_lines": "Ten consecutive 1000 m segments covering the same line.",
+    "source_fields": {"flow": 1000.0, "hgv_flow": 100.0, "speed_kmh": 70, "road_class": "a_road", "traffic_assignment_source": "direct"},
+    "radius_m": 5000,
+    "comparison": "10 * (whole.log10_finite_line_energy_5000m - split.log10_finite_line_energy_5000m)",
+    "difference_db_equivalent": 0.6094626531169212,
+    "interpretation": "Research feature segmentation/support-boundary issue. Not a measured prediction error or a frozen national-output defect."
+  },
+  "dependency_metadata_observed": {
+    "numpy": {"version": "2.5.2", "requires_python": ">=3.12"},
+    "rasterio": {"version": "1.5.1", "requires_python": ">=3.12"},
+    "OWSLib": {"version": "0.36.0", "requires_python": ">=3.12"},
+    "project_declared_python": ">=3.11",
+    "limitation": "Inspected installed distribution metadata; did not attempt installation on every advertised Python version."
+  },
+  "existing_report_evidence_not_freshly_recomputed": {
+    "coverage": "artifacts/england_dataset_report_v3/dataset_report.md",
+    "source_provenance": "artifacts/source_provenance_audit_v1/source_provenance.md",
+    "research_results": "notes/PHASE2C_ROAD_SOURCE_INTEGRITY.md"
+  },
+  "external_sources_checked": [
+    "https://www.gov.uk/government/publications/strategic-noise-mapping-2022/explaining-the-2022-noise-maps",
+    "https://datamap.gov.wales/layergroups/geonode%3AEnvironmental_Noise_Mapping_2022",
+    "https://noise.environment.gov.scot/map.html",
+    "https://www.daera-ni.gov.uk/services/noise-maps",
+    "https://maplibre.org/maplibre-gl-js/docs/",
+    "https://docs.protomaps.com/pmtiles/"
+  ]
+}

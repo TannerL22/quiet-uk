@@ -1,6 +1,13 @@
 .venv/
+/.venv-repro-check/
+/.venv-regional-check/
+/.browser-verify/
 __pycache__/
 .pytest_cache/
+/artifacts/
+/build/
+/dist/
+/src/quiet_uk.egg-info/
 config.json
 data/raw/*
 data/processed/*

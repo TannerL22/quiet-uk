@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f7f1"><title>Quiet UK · A closer look</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/pilot.css">
+  <script src="/vendor/maplibre-gl.js" defer></script><script src="/pilot.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="/">quiet<span>uk</span></a><span class="edition" id="edition">10 m EXPLORER</span><a id="england-map" href="/">← England map</a></header>
+  <main>
+    <aside aria-label="Pilot controls and location evidence">
+      <p class="eyebrow">A CLOSER LOOK</p><h1>Different sources.<br><em>Different hours.</em></h1>
+      <p class="intro" id="intro">Explore places with the original 10 m model grids. Choose a source and compare annual day and night averages.</p>
+      <form id="pilot-search" role="search">
+        <label class="control-label" for="place">Find a place</label>
+        <div class="search-box"><input id="place" placeholder="Town, postcode or coordinates" autocomplete="off" disabled><button type="submit" id="search-button" aria-label="Search places" disabled>→</button></div>
+        <p id="search-status" role="status" class="small">Available within the four preview areas.</p>
+        <ul id="search-results" hidden aria-label="Place search results"></ul>
+      </form>
+      <label class="control-label" for="site">Explore an area <span id="area-size">Loading coverage…</span></label>
+      <select id="site" disabled aria-label="Pilot area"></select>
+      <fieldset id="sources" disabled><legend>Noise source</legend><label><input type="radio" name="source" value="road" checked>Road</label><label><input type="radio" name="source" value="rail">Rail</label><label><input type="radio" name="source" value="aircraft">Aircraft</label></fieldset>
+      <fieldset id="metrics" disabled><legend>Time indicator</legend><label><input type="radio" name="metric" value="Lden" checked>Lden</label><label><input type="radio" name="metric" value="Lday">Day</label><label><input type="radio" name="metric" value="Lnight">Night</label></fieldset>
+      <p id="metric-note" class="small"></p>
+      <div class="period"><span id="period">Loading source evidence…</span><a id="provider" target="_blank" rel="noopener">Provider record ↗</a></div>
+      <section class="inspection" aria-labelledby="point-title">
+        <p class="eyebrow">AT THIS POINT</p><h2 id="point-title">Select a place on the map</h2>
+        <p id="point-value" aria-live="polite">Loading…</p><p id="point-status" class="small"></p>
+        <table aria-label="Source and time comparison at selected point"><thead><tr><th scope="col">dB(A)</th><th scope="col">Lden</th><th scope="col">Day</th><th scope="col">Night</th></tr></thead><tbody id="comparison"></tbody></table>
+        <p class="small">— = unreported; not silence. Each cell describes one source only. Aircraft’s reference period is unspecified, so these sources are not added together.</p>
+        <a id="point-download" class="download" hidden download>Download this point ↓</a>
+      </section>
+      <details><summary>What this evidence can tell us</summary>
+        <p>These are modelled annual indicators at 4 m above ground, not today’s sound or a forecast. A 10 m grid gives finer spatial detail; it does not establish 10 m accuracy.</p>
+        <p>Road and rail reference 2021. The airport metadata does not specify its reference period. New retrieval does not make the underlying modelling current.</p>
+        <p>Road and rail report from 40 dB for Lden/day and 35 dB at night. Airport cutoffs vary. Unreported cells may be below a cutoff or missing: they cannot be ranked as the quietest places.</p>
+        <p>Background sound, loud-event peaks, event counts and quiet intervals remain unavailable. These layers do not represent all ambient sound or personal exposure.</p>
+        <p>The evidence download includes original GeoTIFFs, exact request records, metadata snapshots, checksums and construction code. Independent validation and a study-specific method are still needed for research.</p>
+      </details>
+      <a class="download bundle" href="/downloads/pilot.zip" download>Download data & evidence ↓</a>
+      <p class="credits">Defra, Crown copyright / database rights 2023–2024. <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener">Open Government Licence</a>. Basemap requests go to OpenFreeMap. Submitted place searches go to OpenStreetMap Nominatim; coordinate searches stay local. No analytics.</p>
+    </aside>
+    <section class="map-panel" aria-label="Interactive source noise map">
+      <div id="map"></div>
+      <div class="map-caption"><strong id="map-title">Source pilot</strong><span id="map-value">Select a point inside the outlined area</span><button id="recenter" disabled>Return to area</button></div>
+      <p id="message" role="status" hidden></p>
+      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p><i></i> Unreported / unknown <span>Uncoloured: outside this pilot</span></p></div>
+    </section>
+  </main>
+  <noscript>JavaScript is required for the map. <a href="/downloads/pilot.zip">Download the evidence</a>.</noscript>
+</body>
+</html>
