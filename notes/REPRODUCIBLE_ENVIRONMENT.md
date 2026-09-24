@@ -43,6 +43,23 @@ directory. Hosted results are available under
 [Clean checkout verification](https://github.com/TannerL22/quiet-uk/actions/workflows/verify.yml);
 the local result alone does not establish Linux compatibility.
 
+The [first hosted run](https://github.com/TannerL22/quiet-uk/actions/runs/36041725652)
+subsequently passed all four jobs on source commit `a25b79c`:
+
+| Fresh hosted checkout | Default suite |
+|---|---|
+| Linux, Python 3.12 | 448 passed, 3 release checks deselected |
+| Linux, Python 3.14 | 448 passed, 3 release checks deselected |
+| Windows, Python 3.12 | 447 passed, 1 platform skip, 3 release checks deselected |
+| Windows, Python 3.14, exact lock | 447 passed, 1 platform skip, 3 release checks deselected |
+
+Resolved environments emit pending-deprecation warnings about affine matrix
+multiplication in Rasterio and `source_pilot`, recorded in the CI logs. These
+remain a dependency-maintenance follow-up; compatibility with every future
+resolver result is not established.
+The hosted Windows runner permits the symlink test skipped on the local machine.
+The remaining Windows skip concerns replacing an open SQLite database.
+
 ### Opt-in production-release checks
 
 ```text

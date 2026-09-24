@@ -58,7 +58,7 @@ and links are pinned to the data release and reload verified values. See
 `PLACE_COMPARISON.md`. This implements the comparison workflow; actual user
 testing remains outstanding and no new geographic coverage is claimed.
 
-**Portable verification implemented:** the nine artifact-dependent viewer tests
+**Portable verification completed:** the nine artifact-dependent viewer tests
 now use a generated two-component catalogue. Three opt-in release checks retain
 the real 128-component join, catalogue membership and geometry assertions.
 Byte-preserved Defra fixtures cover real metadata and raster encodings, and CI
@@ -66,7 +66,9 @@ runs a Windows/Linux, Python 3.12/3.14 matrix. A source-only copy in a newly
 installed Windows 3.14 environment passes **446 tests, with two platform skips**;
 the three release checks also pass when explicitly pointed at the local data.
 See [verification instructions and scope](REPRODUCIBLE_ENVIRONMENT.md#source-only-verification).
-The hosted matrix must pass before treating the cross-platform gate as complete.
+The [hosted matrix passed](https://github.com/TannerL22/quiet-uk/actions/runs/36041725652)
+on source commit `a25b79c`: both Linux versions passed 448 tests; both Windows
+versions passed 447 with one platform skip. The next task is evidence semantics.
 
 **Next user-facing increment:** distinguish evidence-backed below-cutoff bounds
 from unknown/nodata, correct aircraft cutoff metadata, and make source omissions
@@ -77,7 +79,7 @@ and document these meanings before larger acquisitions.
 
 | Next phase | Outcome | Exit condition |
 |---|---|---|
-| Portable verification | A checkout others can test | Default Windows/Linux suites pass without local artifacts; release integration checks remain explicit; provider fixtures exercise real encodings |
+| Portable verification (complete) | A checkout others can test | Default Windows/Linux suites passed without local artifacts; release integration checks remain explicit; provider fixtures exercise real encodings |
 | Evidence semantics and extraction fidelity | Consistent source-qualified states and exports | Verified bounds distinguished from unknowns; aircraft minima/thresholds/period evidence separated; small WCS cross-protocol checks pass; new interpretation release preserves raw originals |
 | Coherent, user-tested explorer | One understandable map experience and independently runnable regional data | Consistent legends and source warnings; 4/5 users complete core tasks, none in the formative sample equates unknown with silence or misses Heathrow aircraft evidence |
 | Tiled 50 × 50 km canary | Bounded expansion and measured serving costs | Exact overlaps, resumability, immutable serving snapshots, bounded-memory exports, tile/latency checks and explicit acquisition budgets |
