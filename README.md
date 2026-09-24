@@ -15,6 +15,11 @@ around Heathrow, Didcot, Oxford and the Chilterns (400 km²). It separates road,
 rail and aircraft with day/night/Lden controls, place search, point comparisons,
 and a downloadable evidence bundle. [Regional release and verification](notes/SOURCE_REGIONAL_RELEASE.md).
 
+The latest local interpretation separates zero-coded unknowns from missing cells,
+keeps aircraft cutoffs explicitly unknown, and warns when aircraft evidence is
+excluded from a road/rail view. Original source values are unchanged.
+[Evidence meanings and verification](notes/EVIDENCE_SEMANTICS.md).
+
 In the 10 m explorer, select a point and **Add to comparison**. Save and name up
 to three places, then **Compare places** to see all nine source/time indicators
 side by side. Places persist in your browser; values are re-read from verified

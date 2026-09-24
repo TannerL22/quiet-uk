@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+import copy
+import shutil
 from html import unescape
 from html.parser import HTMLParser
 import json
@@ -25,6 +27,7 @@ import requests
 
 from .explorer import file_hash, json_bytes, rgba_png
 from .catalogue import CatalogueIntegrityError
+from .evidence_semantics import CONTRACT, interpret, record_evidence
 from .locking import ResourceLock
 
 PROVIDERS = {
@@ -350,14 +353,14 @@ def acquire(root, sites=None):
     return products, selected_sites, records
 
 
-def display_image(path):
+def display_image(path, *, evidence_version=None):
     """A nearest-cell Web Mercator display; analytical files are never warped."""
     with rasterio.open(path) as ds:
         t, width, height = calculate_default_transform(ds.crs, 'EPSG:3857', ds.width, ds.height, *ds.bounds)
         # -9999 marks outside the rotated source rectangle; -96/zero inside
         # remain visibly unreported. Both differ from genuinely reported values.
         data = ds.read(1).astype('float64')
-        data[ds.read_masks(1) == 0] = 0
+        data[ds.read_masks(1) == 0] = -1 if evidence_version else 0
         warped = np.full((height, width), -9999., dtype='float64')
         reproject(data, warped, src_transform=ds.transform, src_crs=ds.crs,
                   dst_transform=t, dst_crs='EPSG:3857', dst_nodata=-9999,
@@ -371,6 +374,10 @@ def display_image(path):
     unknown = warped == 0
     rgba[unknown, :3] = [192, 184, 165]
     rgba[unknown, 3] = np.where(((xx+yy) % 8)[unknown] < 2, 210, 130)
+    if evidence_version:
+        missing = warped == -1
+        rgba[missing, :3] = [170, 181, 196]
+        rgba[missing, 3] = np.where(((xx-yy) % 8)[missing] < 2, 210, 130)
     corners = [t*(0, 0), t*(width, 0), t*(width, height), t*(0, height)]
     lon, lat = transform('EPSG:3857', 'EPSG:4326', *zip(*corners))
     return rgba_png(rgba), list(map(list, zip(lon, lat)))
@@ -431,17 +438,83 @@ def _publish(root, sites=None):
     return manifest
 
 
+def publish_interpretation(parent_root, output):
+    """Publish changed meanings/derivatives without acquiring or modifying originals."""
+    parent = SourcePilot(parent_root)
+    if parent.manifest['schema_version'] != 1:
+        raise ValueError('This migration requires an original schema-1 source release')
+    parent.verify()
+    output = Path(output).resolve()
+    if output == parent.root or output.is_relative_to(parent.root) or parent.root.is_relative_to(output):
+        raise ValueError('Interpretation output must be separate from its parent')
+    with ResourceLock(output, 'source interpretation'):
+        if output.exists():
+            raise FileExistsError('Use a new interpretation destination')
+        output.mkdir(parents=True)
+        for name in parent.manifest['files']:
+            target = output/name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(parent.verified_path(name), target)
+        (output/'parent-manifest.json').write_bytes((parent.root/'manifest.json').read_bytes())
+        manifest = copy.deepcopy(parent.manifest)
+        manifest.pop('release_id')
+        manifest.pop('reporting_cutoff_db', None)
+        manifest.pop('aircraft_cutoff_note', None)
+        manifest.update(schema_version=2, parent_release_id=parent.manifest['release_id'],
+                        parent_manifest='parent-manifest.json', evidence_contract=copy.deepcopy(CONTRACT),
+                        created_at_utc=datetime.now(timezone.utc).isoformat(),
+                        missing_value_policy=CONTRACT['missing_value_policy'])
+        (output/'display-evidence-v1').mkdir()
+        for record in manifest['records']:
+            record['evidence'] = record_evidence(record, manifest['products'][record['source']], manifest['files'])
+            png, corners = display_image(output/record['path'], evidence_version=CONTRACT['version'])
+            name = f'display-evidence-v1/{record["id"]}.png'
+            (output/name).write_bytes(png)
+            record['display'] = {'path': name, 'corners': corners, 'resampling': 'nearest', 'analytical_use': False}
+        # Preserve the parent construction code; pin this interpretation separately.
+        repo = Path(__file__).resolve().parents[2]
+        for original in [*Path(__file__).parent.glob('*.py'), repo/'scripts/30_source_pilot.py', repo/'requirements-windows-py314-amd64.lock']:
+            target = output/'interpretation'/original.relative_to(repo)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(original.read_bytes())
+        manifest['files'] = {p.relative_to(output).as_posix(): file_hash(p) for p in sorted(output.rglob('*')) if p.is_file()}
+        manifest['display']['evidence_contract_version'] = CONTRACT['version']
+        manifest['release_id'] = 'pilot-'+hashlib.sha256(json_bytes(manifest)).hexdigest()[:20]
+        (output/'manifest.pending').write_bytes(json_bytes(manifest))
+        (output/'manifest.pending').replace(output/'manifest.json')
+    return manifest
+
+
 class SourcePilot:
     def __init__(self, root):
         self.root = Path(root).resolve()
         self.manifest = json.loads((self.root/'manifest.json').read_text('utf-8'))
         base = {k: v for k, v in self.manifest.items() if k != 'release_id'}
         expected = 'pilot-'+hashlib.sha256(json_bytes(base)).hexdigest()[:20]
-        if self.manifest.get('schema_version') != 1 or self.manifest['release_id'] != expected:
+        if self.manifest.get('schema_version') not in (1, 2) or self.manifest['release_id'] != expected:
             raise CatalogueIntegrityError('Pilot manifest checksum/schema mismatch')
+        if self.manifest['schema_version'] == 2 and self.manifest.get('evidence_contract') != CONTRACT:
+            raise CatalogueIntegrityError('Unsupported evidence contract')
         self.records = {r['id']: r for r in self.manifest['records']}
         for name in self.manifest['files']:
             self.verified_path(name)
+        if self.manifest['schema_version'] == 2:
+            parent = json.loads(self.verified_path(self.manifest['parent_manifest']).read_text('utf-8'))
+            base = {k: v for k, v in parent.items() if k != 'release_id'}
+            if (parent['release_id'] != self.manifest['parent_release_id']
+                    or parent['release_id'] != 'pilot-'+hashlib.sha256(json_bytes(base)).hexdigest()[:20]
+                    or any(parent[key] != self.manifest[key] for key in ('products', 'sites', 'metrics', 'units', 'receiver_height_m', 'spatial_resolution_m'))
+                    or any(self.manifest['files'].get(name) != digest for name, digest in parent['files'].items())):
+                raise CatalogueIntegrityError('Interpretation parent mismatch')
+            originals = {r['id']: r for r in parent['records']}
+            if set(originals) != set(self.records):
+                raise CatalogueIntegrityError('Interpretation changed analytical layers')
+            for record in self.records.values():
+                if ({k: v for k, v in record.items() if k not in ('display', 'evidence')}
+                        != {k: v for k, v in originals[record['id']].items() if k not in ('display', 'evidence')}
+                        or self.manifest['files'][record['path']] != record['sha256']
+                        or record['evidence'] != record_evidence(record, self.manifest['products'][record['source']], self.manifest['files'])):
+                    raise CatalogueIntegrityError('Interpretation changed original evidence')
 
     def verified_path(self, name):
         if name not in self.manifest['files']:
@@ -485,23 +558,31 @@ class SourcePilot:
                 inside = 0 <= row < ds.height and 0 <= col < ds.width
                 raw, value, cell = None, None, None
                 status = 'outside_pilot'
+                evidence = None
                 if inside:
                     raw = float(ds.read(1, window=rasterio.windows.Window(col, row, 1, 1))[0, 0])
-                    cutoff = self.manifest['reporting_cutoff_db'][record['metric']]
+                    cutoff = self.manifest.get('reporting_cutoff_db', {}).get(record['metric'], 35 if record['metric'] == 'Lnight' else 40)
                     status = 'reported_model_value' if raw != ds.nodata and raw >= cutoff else 'unreported'
                     value = raw if status == 'reported_model_value' else None
                     pts = [ds.transform*(col+dx, row+dy) for dx, dy in ((0, 0), (1, 0), (1, 1), (0, 1), (0, 0))]
                     lons, lats = transform(ds.crs, 'EPSG:4326', *zip(*pts))
                     cell = {'type': 'Polygon', 'coordinates': [list(map(list, zip(lons, lats)))]}
+                if self.manifest['schema_version'] == 2:
+                    masked = inside and not bool(ds.read_masks(1, window=rasterio.windows.Window(col, row, 1, 1))[0, 0])
+                    evidence = interpret(raw, inside=inside, masked=masked)
+                    status, value = evidence['status'], evidence['value_db']
                 observations.append({'record_id': record['id'], 'source': record['source'], 'metric': record['metric'],
                                      'value_db': value, 'raw_value': raw, 'status': status,
                                      'units': 'dB(A)', 'reference_period': product['reference_period'],
                                      'reference_period_status': product['reference_period_status'],
                                      'source_sha256': record['sha256'], 'http_record': record['http_record'],
                                      'coverage_id': product['requests_by_metric'][record['metric']]['coverage_id'],
-                                     'cell': cell, 'row': row if inside else None, 'column': col if inside else None})
+                                     'cell': cell, 'row': row if inside else None, 'column': col if inside else None,
+                                     **({**record['evidence'], **evidence} if evidence else {})})
         return {'release_id': self.manifest['release_id'], 'site': site, 'longitude': lon, 'latitude': lat,
-                'observations': observations, 'missing_value_policy': self.manifest['missing_value_policy'],
+                'observations': observations,
+                **({'evidence_contract_version': CONTRACT['version'], 'parent_release_id': self.manifest['parent_release_id']} if self.manifest['schema_version'] == 2 else {}),
+                'missing_value_policy': self.manifest['missing_value_policy'],
                 'uncertainty': self.manifest['uncertainty'], 'unavailable': self.manifest['unavailable']}
 
     def verify(self, reproduce=False):
@@ -528,8 +609,12 @@ class SourcePilot:
                 raise CatalogueIntegrityError('Pilot acquisition chain mismatch')
             if provider_period(self.verified_path(product['metadata_file']).read_text('utf-8'), product['metadata_id']) != product['reference_period']:
                 raise CatalogueIntegrityError('Reference period evidence mismatch')
+            if self.manifest['schema_version'] == 2:
+                expected = record_evidence(record, product, self.manifest['files'])
+                if record.get('evidence') != expected:
+                    raise CatalogueIntegrityError('Evidence interpretation differs from recorded sources')
             if reproduce:
-                png, corners = display_image(self.verified_path(record['path']))
+                png, corners = display_image(self.verified_path(record['path']), evidence_version=CONTRACT['version'] if self.manifest['schema_version'] == 2 else None)
                 if png != self.verified_path(record['display']['path']).read_bytes() or corners != record['display']['corners']:
                     raise CatalogueIntegrityError('Display reproduction mismatch')
         return {'release_id': self.manifest['release_id'], 'verified_records': len(self.records),
