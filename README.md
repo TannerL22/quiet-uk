@@ -21,7 +21,25 @@ side by side. Places persist in your browser; values are re-read from verified
 originals. Download exact observations as CSV or JSON, or copy a release-specific
 local comparison link. [Comparison behaviour and evidence](notes/PLACE_COMPARISON.md).
 
-## Open the explorer
+## Verify a source-only checkout
+
+The default tests need no downloaded noise data or running app. In a fresh Python
+3.12 or 3.14 virtual environment, run from the repository root:
+
+```text
+python -m pip install -e ".[dev]"
+python -m pip check
+python -m pytest -q -rs --strict-markers
+```
+
+Windows 3.14 also has an exact dependency lock. The default suite builds tiny
+synthetic datasets and uses checked-in, byte-preserved Defra fixtures. Three
+production-release checks are explicitly deselected; to run those against an
+existing data checkout, use `python -m pytest --run-release-checks -m release_data`.
+Missing release inputs then fail clearly rather than silently skipping.
+See [verification setup and scope](notes/REPRODUCIBLE_ENVIRONMENT.md#source-only-verification).
+
+## Launch the app
 
 On Windows, double-click **Launch Quiet UK.cmd** in this repository folder
 (the existing shortcut in the containing folder also works). It starts the local server in the background, waits

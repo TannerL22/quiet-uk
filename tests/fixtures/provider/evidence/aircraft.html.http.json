@@ -1,0 +1,14 @@
+{
+  "request_url": "https://environment.data.gov.uk/dataset/dac9cba4-abe7-43bd-b8e9-8a83da52edd8",
+  "response_url": "https://environment.data.gov.uk/dataset/dac9cba4-abe7-43bd-b8e9-8a83da52edd8",
+  "retrieved_at_utc": "2026-09-22T17:33:47.174555+00:00",
+  "status": 200,
+  "sha256": "3fce503e6efc2c070f7e2e33528ddf0295ed779fea500ef10fc1210a9d0b9b56",
+  "bytes": 75862,
+  "response_headers": {
+    "Date": "Tue, 22 Sep 2026 17:33:41 GMT",
+    "Content-Type": "text/html; charset=utf-8",
+    "ETag": "\"2kofuogqch1mhz\""
+  },
+  "redirects": []
+}

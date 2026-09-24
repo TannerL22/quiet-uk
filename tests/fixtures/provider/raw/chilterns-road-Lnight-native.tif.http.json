@@ -1,0 +1,13 @@
+{
+  "request_url": "https://environment.data.gov.uk/spatialdata/road-noise-all-metrics-england-round-4/wcs?service=WCS&version=2.0.1&request=GetCoverage&coverageId=562c9d56-7c2d-4d42-83bb-578d6e97a517__Road_Noise_Lnight_England_Round_4_All&format=image%2Ftiff&subset=E%28470435.0%2C472435.0%29&subset=N%28193075.0%2C195075.0%29",
+  "response_url": "https://environment.data.gov.uk/spatialdata/road-noise-all-metrics-england-round-4/wcs?service=WCS&version=2.0.1&request=GetCoverage&coverageId=562c9d56-7c2d-4d42-83bb-578d6e97a517__Road_Noise_Lnight_England_Round_4_All&format=image%2Ftiff&subset=E%28470435.0%2C472435.0%29&subset=N%28193075.0%2C195075.0%29",
+  "retrieved_at_utc": "2026-09-22T17:38:08.223198+00:00",
+  "status": 200,
+  "sha256": "71ac37b0f69fac4434d0798350c8abbf18a80532ed220cc33828ba98292d2aa1",
+  "bytes": 173458,
+  "response_headers": {
+    "Date": "Tue, 22 Sep 2026 17:38:02 GMT",
+    "Content-Type": "image/tiff"
+  },
+  "redirects": []
+}

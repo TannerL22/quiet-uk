@@ -1,16 +1,16 @@
 import importlib.util
 import json
-import shutil
+import copy
 import threading
 import urllib.request
 from pathlib import Path
 
-import numpy as np
 import pytest
 from rasterio.features import rasterize
 from rasterio.transform import Affine
 
 from quiet_uk.catalogue import DatasetCatalogue
+from test_candidates import _screen
 
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "24_serve_candidate_viewer.py"
@@ -20,70 +20,75 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(viewer_server)
 
 
-ARTIFACT = Path(__file__).parents[1] / "artifacts" / "candidate_screening_pilot_v2"
 APP_JS = Path(__file__).parents[1] / "candidate_viewer" / "app.js"
 
 
-def _payloads():
-    return (
-        json.loads((ARTIFACT / "candidates.json").read_text(encoding="utf-8")),
-        json.loads((ARTIFACT / "candidates.geojson").read_text(encoding="utf-8")),
-    )
+@pytest.fixture(scope="module")
+def candidate_data(tmp_path_factory):
+    # Two components separated by withheld road evidence, plus one sea cell.
+    # Build through the actual catalogue/screening pipeline, without local data.
+    return _screen(tmp_path_factory.mktemp("candidate-viewer"), threshold=63.0)
 
 
-def test_candidate_viewer_validates_the_reviewed_128_component_join():
-    report, geojson = _payloads()
+@pytest.fixture
+def payloads(candidate_data):
+    screening = candidate_data[2]
+    return copy.deepcopy((screening.report, screening.geojson))
+
+
+def test_candidate_viewer_validates_generated_component_join(payloads):
+    report, geojson = payloads
     viewer_server.validate_candidate_payloads(report, geojson)
-    assert len(report["components"]) == 128
-    assert len(geojson["features"]) == 128
+    assert [component["cell_count"] for component in report["components"]] == [8, 3]
+    assert len(geojson["features"]) == 2
 
 
-def test_candidate_viewer_representative_points_resolve_against_the_reviewed_catalogue():
-    report, _ = _payloads()
-    with DatasetCatalogue(
-        Path(__file__).parents[1] / "artifacts" / "england_catalogue_v3",
-        Path(__file__).parents[1] / "data" / "processed" / "england" / "tiles",
-        Path(__file__).parents[1] / "data" / "processed" / "england_mask" / "england_100m_mask.tif",
-    ) as catalogue:
-        for component in report["components"]:
-            point = component["representative_cell"]["center_bng"]
-            lookup = catalogue.lookup(point["easting_m"], point["northing_m"])
-            assert lookup["land_status"] == "england_land"
-            assert lookup["tile_id"] in component["source_tile_ids"]
-            assert lookup["cell"]["center_bng"] == point
-            assert lookup["bands"]["road_rail_upper_db"]["value"] <= component["road_rail_upper_db"]["requested_threshold_db"]
+def assert_representative_points(report, catalogue):
+    for component in report["components"]:
+        point = component["representative_cell"]["center_bng"]
+        lookup = catalogue.lookup(point["easting_m"], point["northing_m"])
+        assert lookup["land_status"] == "england_land"
+        assert lookup["tile_id"] in component["source_tile_ids"]
+        assert lookup["cell"]["center_bng"] == point
+        assert lookup["bands"]["road_rail_upper_db"]["value"] <= component["road_rail_upper_db"]["requested_threshold_db"]
 
 
-def test_candidate_viewer_rejects_run_id_mismatch_before_display():
-    report, geojson = _payloads()
+def test_candidate_viewer_representative_points_resolve_against_generated_catalogue(candidate_data, payloads):
+    paths, result, _ = candidate_data
+    with DatasetCatalogue(result["catalogue_dir"], paths[0], paths[3]) as catalogue:
+        assert_representative_points(payloads[0], catalogue)
+
+
+def test_candidate_viewer_rejects_run_id_mismatch_before_display(payloads):
+    report, geojson = payloads
     geojson["run_id"] = "different-screening-run"
     with pytest.raises(viewer_server.ViewerDataError, match="run_id mismatch"):
         viewer_server.validate_candidate_payloads(report, geojson)
 
 
-def test_candidate_viewer_rejects_component_id_mismatch_before_display():
-    report, geojson = _payloads()
+def test_candidate_viewer_rejects_component_id_mismatch_before_display(payloads):
+    report, geojson = payloads
     geojson["features"][0]["properties"]["component_id"] = "candidate-not-in-json"
     with pytest.raises(viewer_server.ViewerDataError, match="component_id mismatch"):
         viewer_server.validate_candidate_payloads(report, geojson)
 
 
-def test_candidate_viewer_rejects_malformed_geometry_before_display():
-    report, geojson = _payloads()
+def test_candidate_viewer_rejects_malformed_geometry_before_display(payloads):
+    report, geojson = payloads
     geojson["features"][0]["geometry"] = {"type": "Point", "coordinates": [0, 0]}
     with pytest.raises(viewer_server.ViewerDataError, match="Polygon or MultiPolygon"):
         viewer_server.validate_candidate_payloads(report, geojson)
 
 
-def test_candidate_viewer_rejects_duplicate_component_ids_before_display():
-    report, geojson = _payloads()
+def test_candidate_viewer_rejects_duplicate_component_ids_before_display(payloads):
+    report, geojson = payloads
     geojson["features"][1]["properties"]["component_id"] = geojson["features"][0]["properties"]["component_id"]
     with pytest.raises(viewer_server.ViewerDataError, match="duplicate component_id"):
         viewer_server.validate_candidate_payloads(report, geojson)
 
 
-def test_candidate_viewer_rejects_malformed_request_parameters_before_display():
-    report, geojson = _payloads()
+def test_candidate_viewer_rejects_malformed_request_parameters_before_display(payloads):
+    report, geojson = payloads
     report["parameters"]["bbox_bng"] = [410000.0, 562000.0, 409000.0, 563000.0]
     with pytest.raises(viewer_server.ViewerDataError, match="bbox_bng must be ordered"):
         viewer_server.validate_candidate_payloads(report, geojson)
@@ -108,8 +113,12 @@ def _get(server, route):
         return response.status, response.read()
 
 
-def test_candidate_viewer_derives_bng_geometry_and_retains_grid_membership():
-    report, geojson = _payloads()
+def test_candidate_viewer_derives_bng_geometry_and_retains_grid_membership(payloads):
+    assert_geometry_membership(payloads)
+
+
+def assert_geometry_membership(payloads):
+    report, geojson = payloads
     snapshot = viewer_server.build_viewer_snapshot(report, geojson)
     derived = json.loads(snapshot.bng_bytes)
 
@@ -137,11 +146,11 @@ def test_candidate_viewer_derives_bng_geometry_and_retains_grid_membership():
         assert south <= representative["northing_m"] <= north
 
 
-def test_candidate_viewer_serves_one_immutable_snapshot_after_source_files_change(tmp_path):
+def test_candidate_viewer_serves_one_immutable_snapshot_after_source_files_change(tmp_path, payloads):
     json_path = tmp_path / "candidates.json"
     geojson_path = tmp_path / "candidates.geojson"
-    shutil.copy2(ARTIFACT / "candidates.json", json_path)
-    shutil.copy2(ARTIFACT / "candidates.geojson", geojson_path)
+    json_path.write_text(json.dumps(payloads[0]), encoding="utf-8")
+    geojson_path.write_text(json.dumps(payloads[1]), encoding="utf-8")
     snapshot = viewer_server.load_viewer_snapshot(json_path, geojson_path)
     server, thread = _serve_snapshot(snapshot)
     try:

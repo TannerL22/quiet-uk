@@ -1,0 +1,48 @@
+name: Clean checkout verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.14']
+    env:
+      PROJ_NETWORK: 'OFF'
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install exact Windows 3.14 dependencies
+        if: matrix.os == 'windows-latest' && matrix.python == '3.14'
+        run: |
+          python -m pip install -r requirements-windows-py314-amd64.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+      - name: Resolve dependencies for other platforms
+        if: matrix.os != 'windows-latest' || matrix.python != '3.14'
+        run: python -m pip install -e ".[dev]"
+      - name: Verify dependency health and record versions
+        run: |
+          python -m pip check
+          python -m pip freeze
+          python -c "import platform, rasterio; print(platform.platform()); print('GDAL', rasterio.__gdal_version__, 'PROJ', rasterio.__proj_version__)"
+      - name: Confirm no generated data is available
+        run: python -c "from pathlib import Path; assert not Path('artifacts').exists(); assert not list(Path('data').rglob('*.tif'))"
+      - name: Run source-only suite
+        run: python -m pytest -q -rs --strict-markers

@@ -2,7 +2,67 @@
 
 This documents the reviewed installation and verification path for the Quiet UK backend. It is an environment verification record, not a scientific release and not proof of acoustic accuracy.
 
-## Tested combination
+## Source-only verification
+
+The default suite can run from a clean source checkout. It does not require the
+England catalogue, local generated artifacts, live provider services or a running
+app. Tests create their own small datasets and loopback HTTP servers. Nine viewer
+tests previously depended on `artifacts/candidate_screening_pilot_v2`; they now
+use a two-component synthetic catalogue with known geometry and withheld cells.
+Real provider responses in `tests/fixtures/provider` exercise both metadata page
+formats, WCS 1.0/2.0 descriptions, request identity, grid phase and zero/nodata
+encodings. Their README records provenance, licence and scope.
+
+For Windows CPython 3.14, create a fresh environment and install:
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-windows-py314-amd64.lock
+.\.venv\Scripts\python.exe -m pip install --no-deps --no-build-isolation -e .
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -m pytest -q -rs --strict-markers
+```
+
+On other supported combinations, install `python -m pip install -e ".[dev]"`
+in a fresh virtual environment, then run `python -m pip check` and
+`python -m pytest -q -rs --strict-markers`. Dependency installation needs package
+access; the tests use local data. The CI matrix covers Windows/Linux with Python
+3.12 and 3.14, uses the exact lock only on Windows 3.14, and records resolved and
+native geospatial versions elsewhere. A resolver install is not an exact lock.
+See `.github/workflows/verify.yml` for the executable checks.
+
+On 24 September 2026, the updated tracked/unignored source was copied into
+`artifacts/clean_checkout_verification_v1/source`, without generated data or
+environments. A new sibling virtual environment installed all 35 Windows lock
+entries and the copied project; `pip check` passed. The full default suite passed
+**446 tests, with two Windows-related skips and three release checks deselected**.
+The explicit release command failed with clear missing-data errors in that copy,
+then passed all three checks with `--release-root=...` pointing to the existing
+data checkout. Local JUnit evidence is preserved in the parent verification
+directory. Hosted results are available under
+[Clean checkout verification](https://github.com/TannerL22/quiet-uk/actions/workflows/verify.yml);
+the local result alone does not establish Linux compatibility.
+
+### Opt-in production-release checks
+
+```text
+python -m pytest --run-release-checks -m release_data -q
+python -m pytest --run-release-checks -m release_data --release-root=PATH_TO_DATA_CHECKOUT -q
+```
+
+These retain the actual 128-component join, representative points against the
+reviewed England catalogue, and exact rasterised geometry membership. Without
+`--run-release-checks`, they are reported as deselected. With it, absent inputs
+are errors, not skips; `--release-root` alone does not enable them. Omit
+`-m release_data` to run both suites together. They verify the preserved release,
+not scientific accuracy or a complete national rebuild.
+Use the `--release-root=...` form so pytest does not mistake an external data
+directory for a test-discovery root; quote the entire argument if it contains spaces.
+
+The records below describe earlier, data-populated environment checks. Their
+historical pass counts are not evidence of clean-checkout portability.
+
+## Historical tested combination
 
 - CPython `3.14.2`
 - Windows 11, `AMD64`, 64-bit

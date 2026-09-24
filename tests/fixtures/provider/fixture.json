@@ -1,0 +1,372 @@
+{
+  "schema_version": 1,
+  "source_release_id": "pilot-6c08842ad8a81dfdc4bf",
+  "source_manifest_sha256": "9efe79df1b0b1cafc793ca8d13b901997717ba6ae2e3094e5bd36bee0c3024d4",
+  "hydrated_metadata_release_id": "pilot-d0aa536e7c93d05b09fe",
+  "products": {
+    "road": {
+      "endpoint": "https://environment.data.gov.uk/spatialdata/road-noise-all-metrics-england-round-4/wcs",
+      "version": "1.0.0",
+      "coverage_ids": {
+        "Lden": "562c9d56-7c2d-4d42-83bb-578d6e97a517:Road_Noise_Lden_England_Round_4_All",
+        "Lday": "562c9d56-7c2d-4d42-83bb-578d6e97a517:Road_Noise_Lday_England_Round_4_All",
+        "Lnight": "wksp562c9d56-7c2d-4d42-83bb-578d6e97a517:Road_Noise_Lnight_England_Round_4_All"
+      },
+      "requests_by_metric": {
+        "Lden": {
+          "version": "1.0.0",
+          "coverage_id": "562c9d56-7c2d-4d42-83bb-578d6e97a517:Road_Noise_Lden_England_Round_4_All",
+          "description_file": "evidence/road-Lden-description.xml",
+          "fallback_reason": null
+        },
+        "Lday": {
+          "version": "1.0.0",
+          "coverage_id": "562c9d56-7c2d-4d42-83bb-578d6e97a517:Road_Noise_Lday_England_Round_4_All",
+          "description_file": "evidence/road-Lday-description.xml",
+          "fallback_reason": null
+        },
+        "Lnight": {
+          "version": "2.0.1",
+          "coverage_id": "562c9d56-7c2d-4d42-83bb-578d6e97a517__Road_Noise_Lnight_England_Round_4_All",
+          "description_file": "evidence/road-Lnight-description-2.xml",
+          "fallback_reason": "advertised_wcs10_identifier_rejected"
+        }
+      },
+      "metadata_id": "562c9d56-7c2d-4d42-83bb-578d6e97a517",
+      "metadata_file": "evidence/road.html",
+      "reference_period": {
+        "start": "2021-01-01",
+        "end": "2021-12-31"
+      },
+      "reference_period_status": "provider_declared"
+    },
+    "rail": {
+      "endpoint": "https://environment.data.gov.uk/spatialdata/noise-data/wcs",
+      "version": "1.0.0",
+      "coverage_ids": {
+        "Lden": "3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947:Rail_Noise_Lden_England_Round_4_All",
+        "Lday": "3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947:Rail_Noise_Lday_England_Round_4_All",
+        "Lnight": "3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947:Rail_Noise_Lnight_England_Round_4_All"
+      },
+      "requests_by_metric": {
+        "Lden": {
+          "version": "1.0.0",
+          "coverage_id": "3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947:Rail_Noise_Lden_England_Round_4_All",
+          "description_file": "evidence/rail-Lden-description.xml",
+          "fallback_reason": null
+        },
+        "Lday": {
+          "version": "1.0.0",
+          "coverage_id": "3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947:Rail_Noise_Lday_England_Round_4_All",
+          "description_file": "evidence/rail-Lday-description.xml",
+          "fallback_reason": null
+        },
+        "Lnight": {
+          "version": "1.0.0",
+          "coverage_id": "3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947:Rail_Noise_Lnight_England_Round_4_All",
+          "description_file": "evidence/rail-Lnight-description.xml",
+          "fallback_reason": null
+        }
+      },
+      "metadata_id": "3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947",
+      "metadata_file": "evidence/rail.html",
+      "reference_period": {
+        "start": "2021-01-01",
+        "end": "2021-12-31"
+      },
+      "reference_period_status": "provider_declared"
+    },
+    "aircraft": {
+      "endpoint": "https://environment.data.gov.uk/spatialdata/airport-noise-all-metrics-england-round-4/wcs",
+      "version": "2.0.1",
+      "coverage_ids": {
+        "Lden": "dac9cba4-abe7-43bd-b8e9-8a83da52edd8__Airport_Noise_ALL_Lden",
+        "Lday": "dac9cba4-abe7-43bd-b8e9-8a83da52edd8__Airport_Noise_ALL_Lday",
+        "Lnight": "dac9cba4-abe7-43bd-b8e9-8a83da52edd8__Airport_Noise_ALL_Lnight"
+      },
+      "requests_by_metric": {
+        "Lden": {
+          "version": "2.0.1",
+          "coverage_id": "dac9cba4-abe7-43bd-b8e9-8a83da52edd8__Airport_Noise_ALL_Lden",
+          "description_file": "evidence/aircraft-Lden-description.xml",
+          "fallback_reason": null
+        },
+        "Lday": {
+          "version": "2.0.1",
+          "coverage_id": "dac9cba4-abe7-43bd-b8e9-8a83da52edd8__Airport_Noise_ALL_Lday",
+          "description_file": "evidence/aircraft-Lday-description.xml",
+          "fallback_reason": null
+        },
+        "Lnight": {
+          "version": "2.0.1",
+          "coverage_id": "dac9cba4-abe7-43bd-b8e9-8a83da52edd8__Airport_Noise_ALL_Lnight",
+          "description_file": "evidence/aircraft-Lnight-description.xml",
+          "fallback_reason": null
+        }
+      },
+      "metadata_id": "dac9cba4-abe7-43bd-b8e9-8a83da52edd8",
+      "metadata_file": "evidence/aircraft.html",
+      "reference_period": null,
+      "reference_period_status": "unspecified_by_provider"
+    }
+  },
+  "records": [
+    {
+      "id": "heathrow-road-Lden",
+      "source": "road",
+      "metric": "Lden",
+      "path": "raw/heathrow-road-Lden.tif",
+      "sha256": "4fd8aa99dbdcf27cead5ed63c5a3912e5979738bcb846e9c1ad6198e59f89e3a",
+      "http_record": "raw/heathrow-road-Lden.tif.http.json",
+      "native_grid": {
+        "center_origin": [
+          82650.0,
+          657600.0
+        ],
+        "offset_vectors": [
+          [
+            10.0,
+            0.0
+          ],
+          [
+            0.0,
+            -10.0
+          ]
+        ],
+        "crs": "EPSG:27700"
+      },
+      "qa": {
+        "shape": [
+          200,
+          200
+        ],
+        "bounds": [
+          506925.0,
+          174115.0,
+          508925.0,
+          176115.0
+        ],
+        "transform": [
+          10.0,
+          0.0,
+          506925.0,
+          0.0,
+          -10.0,
+          176115.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "crs": "EPSG:27700",
+        "nodata": -96.0,
+        "dtype": "float32",
+        "reported_cells": 38853,
+        "unreported_cells": 1147,
+        "zero_sentinel_cells": 1147,
+        "nodata_cells": 0,
+        "reported_min_db": 40.0,
+        "reported_max_db": 80.20999908447266
+      }
+    },
+    {
+      "id": "chilterns-road-Lnight",
+      "source": "road",
+      "metric": "Lnight",
+      "path": "raw/chilterns-road-Lnight-native.tif",
+      "sha256": "71ac37b0f69fac4434d0798350c8abbf18a80532ed220cc33828ba98292d2aa1",
+      "http_record": "raw/chilterns-road-Lnight-native.tif.http.json",
+      "native_grid": {
+        "center_origin": [
+          82650.0,
+          657600.0
+        ],
+        "offset_vectors": [
+          [
+            10.0,
+            0.0
+          ],
+          [
+            0.0,
+            -10.0
+          ]
+        ],
+        "crs": "EPSG:27700"
+      },
+      "qa": {
+        "shape": [
+          200,
+          200
+        ],
+        "bounds": [
+          470435.0,
+          193075.0,
+          472435.0,
+          195075.0
+        ],
+        "transform": [
+          10.0,
+          0.0,
+          470435.0,
+          0.0,
+          -10.0,
+          195075.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "crs": "EPSG:27700",
+        "nodata": -96.0,
+        "dtype": "float32",
+        "reported_cells": 3757,
+        "unreported_cells": 36243,
+        "zero_sentinel_cells": 36243,
+        "nodata_cells": 0,
+        "reported_min_db": 35.0,
+        "reported_max_db": 50.91999816894531
+      }
+    },
+    {
+      "id": "heathrow-rail-Lden",
+      "source": "rail",
+      "metric": "Lden",
+      "path": "raw/heathrow-rail-Lden.tif",
+      "sha256": "9bec5141b33d178a59c68a052e0471651a190d5cb915c86d4186f9b8273ced94",
+      "http_record": "raw/heathrow-rail-Lden.tif.http.json",
+      "native_grid": {
+        "center_origin": [
+          82650.0,
+          657600.0
+        ],
+        "offset_vectors": [
+          [
+            10.0,
+            0.0
+          ],
+          [
+            0.0,
+            -10.0
+          ]
+        ],
+        "crs": "EPSG:27700"
+      },
+      "qa": {
+        "shape": [
+          200,
+          200
+        ],
+        "bounds": [
+          506925.0,
+          174115.0,
+          508925.0,
+          176115.0
+        ],
+        "transform": [
+          10.0,
+          0.0,
+          506925.0,
+          0.0,
+          -10.0,
+          176115.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "crs": "EPSG:27700",
+        "nodata": -96.0,
+        "dtype": "float32",
+        "reported_cells": 0,
+        "unreported_cells": 40000,
+        "zero_sentinel_cells": 40000,
+        "nodata_cells": 0,
+        "reported_min_db": null,
+        "reported_max_db": null
+      }
+    },
+    {
+      "id": "heathrow-aircraft-Lnight",
+      "source": "aircraft",
+      "metric": "Lnight",
+      "path": "raw/heathrow-aircraft-Lnight-native.tif",
+      "sha256": "1b0e0f23b4f1c1eb7084d0fae33fe543a9ec0ae27744137069fe4eab1a044620",
+      "http_record": "raw/heathrow-aircraft-Lnight-native.tif.http.json",
+      "native_grid": {
+        "center_origin": [
+          333490.0,
+          574280.0
+        ],
+        "offset_vectors": [
+          [
+            10.0,
+            0.0
+          ],
+          [
+            0.0,
+            -10.0
+          ]
+        ],
+        "crs": "EPSG:27700"
+      },
+      "qa": {
+        "shape": [
+          200,
+          200
+        ],
+        "bounds": [
+          506925.0,
+          174115.0,
+          508925.0,
+          176115.0
+        ],
+        "transform": [
+          10.0,
+          0.0,
+          506925.0,
+          0.0,
+          -10.0,
+          176115.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "crs": "EPSG:27700",
+        "nodata": 3.3999999521443642e+38,
+        "dtype": "float64",
+        "reported_cells": 33655,
+        "unreported_cells": 6345,
+        "zero_sentinel_cells": 0,
+        "nodata_cells": 6345,
+        "reported_min_db": 44.0,
+        "reported_max_db": 76.41699981689453
+      }
+    }
+  ],
+  "files": {
+    "evidence/aircraft-Lnight-description.xml": "75ee1e8908f939761e28e50bced911da22c11466a70e9d5579dd7dc8f30ebda2",
+    "evidence/aircraft-Lnight-description.xml.http.json": "54d079c3fb0142fd9ed40cf9703e7255df5185689b9857d1dbd7cd31e6083887",
+    "evidence/aircraft.html": "3fce503e6efc2c070f7e2e33528ddf0295ed779fea500ef10fc1210a9d0b9b56",
+    "evidence/aircraft.html.http.json": "5d12f8acd219aea44cf5f161c065d8ae4c66e4d37ef56cad5f31c570afbec825",
+    "evidence/rail-Lden-description.xml": "aaa6e672e0523d5a05e604075d7eb387307b7e2e41cdfec60957cdb3f5a68d7c",
+    "evidence/rail-Lden-description.xml.http.json": "fb25861459e9bb2b555426ffebf2a254ca0202e38b3e703b0dccfdbeb7f3aaf8",
+    "evidence/rail.html": "f6b8d4dc0b3f8a10d60ed9e3126dadcb5dca85a2a222ad87e5566d77b2751582",
+    "evidence/rail.html.http.json": "922f770885686cf055e7d3cbd36f5f07c7091f5cf44712f2bc50faed0e2b9b49",
+    "evidence/road-Lden-description.xml": "fd8033f2e2b4fb581b563665ee96b4878ba0ea6fd08182121e6c9e3ff66bf5f4",
+    "evidence/road-Lden-description.xml.http.json": "b098f819f438a6863fb7aabc4587b3a4a0c14fcae77fb43ffb1b6c358894ad6f",
+    "evidence/road-Lnight-description-2.xml": "08d8a27cee107c2ed410aaaa17c4ee72613653f79f4d43bb3540534e490e1e57",
+    "evidence/road-Lnight-description-2.xml.http.json": "5b55a55186c384ec6ce4150a0051c02331a96f986cfbcca136d192bea128f59c",
+    "evidence/road-hydrated.html": "1f3cc08fc8ea55df4b04bad650fc21e993f2368c6b5d36ab706217d45ab17b38",
+    "evidence/road-hydrated.html.http.json": "f08fe517b2f661029298b2157a30bf6311be808097263d7f8ff3adcd371265b3",
+    "evidence/road.html": "0474c686b3497cf5acbc73c05a30208c9c0ee61242a366a75bc45cfa5407ff3d",
+    "evidence/road.html.http.json": "cc2690d482775f9518d7294e2bf92b6c766321488c6a3d48302f640c751795eb",
+    "raw/chilterns-road-Lnight-native.tif": "71ac37b0f69fac4434d0798350c8abbf18a80532ed220cc33828ba98292d2aa1",
+    "raw/chilterns-road-Lnight-native.tif.http.json": "4cb29423d8a7a112e432809ce7ff5e87432057126bd72aad9aa8ab1f958471ed",
+    "raw/heathrow-aircraft-Lnight-native.tif": "1b0e0f23b4f1c1eb7084d0fae33fe543a9ec0ae27744137069fe4eab1a044620",
+    "raw/heathrow-aircraft-Lnight-native.tif.http.json": "c05d767f7a10a84f46fe245ccc8b705adef30794a7a0aadb9e909b11256131c9",
+    "raw/heathrow-rail-Lden.tif": "9bec5141b33d178a59c68a052e0471651a190d5cb915c86d4186f9b8273ced94",
+    "raw/heathrow-rail-Lden.tif.http.json": "fbfa737a2a282fbcc89cca3254c24aa431981e29a53d0fccb425607a5ed7f99f",
+    "raw/heathrow-road-Lden.tif": "4fd8aa99dbdcf27cead5ed63c5a3912e5979738bcb846e9c1ad6198e59f89e3a",
+    "raw/heathrow-road-Lden.tif.http.json": "e1f107e2fe74dc8822643fd8aa6152ca011eb0fbf29f63a739a0669dd85a8c8f"
+  },
+  "licence": "Open Government Licence v3.0",
+  "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "attribution": "\u00a9 Department for Environment, Food & Rural Affairs copyright and/or database right 2023 (road/rail), 2024 (airport)."
+}
