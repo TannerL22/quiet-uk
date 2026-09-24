@@ -23,13 +23,15 @@
       <select id="site" disabled aria-label="Pilot area"></select>
       <fieldset id="sources" disabled><legend>Noise source</legend><label><input type="radio" name="source" value="road" checked>Road</label><label><input type="radio" name="source" value="rail">Rail</label><label><input type="radio" name="source" value="aircraft">Aircraft</label></fieldset>
       <fieldset id="metrics" disabled><legend>Time indicator</legend><label><input type="radio" name="metric" value="Lden" checked>Lden</label><label><input type="radio" name="metric" value="Lday">Day</label><label><input type="radio" name="metric" value="Lnight">Night</label></fieldset>
+      <p id="source-scope" class="source-scope" role="status"></p>
       <p id="metric-note" class="small"></p>
       <div class="period"><span id="period">Loading source evidence…</span><a id="provider" target="_blank" rel="noopener">Provider record ↗</a></div>
       <section class="inspection" aria-labelledby="point-title">
         <p class="eyebrow">AT THIS POINT</p><h2 id="point-title">Select a place on the map</h2>
         <p id="point-value" aria-live="polite">Loading…</p><p id="point-status" class="small"></p>
+        <div id="aircraft-cue" class="aircraft-cue" hidden><p id="aircraft-evidence"></p><button id="show-aircraft" type="button">Show aircraft layer</button></div>
         <table aria-label="Source and time comparison at selected point"><thead><tr><th scope="col">dB(A)</th><th scope="col">Lden</th><th scope="col">Day</th><th scope="col">Night</th></tr></thead><tbody id="comparison"></tbody></table>
-        <p class="small">— = unreported; not silence. Each cell describes one source only. Aircraft’s reference period is unspecified, so these sources are not added together.</p>
+        <p class="small">Unknown or — means no supported level; not silence. Each cell describes one source only. Aircraft’s reference period is unspecified, so these sources are not added together.</p>
         <a id="point-download" class="download" hidden download>Download this point ↓</a>
         <button id="save-place" class="compare-button" type="button" disabled>＋ Add to comparison</button>
       </section>
@@ -54,7 +56,7 @@
       <div id="map"></div>
       <div class="map-caption"><strong id="map-title">Source pilot</strong><span id="map-value">Select a point inside the outlined area</span><button id="recenter" disabled>Return to area</button></div>
       <p id="message" role="status" hidden></p>
-      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p><i></i> Unreported / unknown <span>Uncoloured: outside this pilot</span></p></div>
+      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p id="unknown-legend"></p><p>Uncoloured: outside this extract</p></div>
     </section>
   </main>
   <dialog id="comparison-dialog" aria-labelledby="comparison-title">

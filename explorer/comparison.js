@@ -64,7 +64,7 @@ window.createPlaceComparison = function ({manifest, onShow, onChange, initialHas
     persist(); refresh();
   }
   function observationText(o) {
-    return o.value_db !== null ? `${o.value_db.toFixed(1)} dB(A)` : o.status === 'outside_pilot' ? 'Outside coverage' : 'Unreported';
+    return o.value_db !== null ? `${o.value_db.toFixed(1)} dB(A)` : (o.display_label || (o.status === 'outside_pilot' ? 'Outside coverage' : 'Unreported'));
   }
   function renderResult() {
     const table = $('places-table'); table.replaceChildren(); $('comparison-differences').replaceChildren();
@@ -98,7 +98,12 @@ window.createPlaceComparison = function ({manifest, onShow, onChange, initialHas
     $('comparison-focus').textContent = `${names[source]} · ${metricNames[metric]} · difference from A`;
     active.differences_from_first.forEach((d,i) => {
       const p = document.createElement('p'), letter = String.fromCharCode(66+i);
-      if (d.difference_from_first_db === null) p.textContent = `${letter}: ${d.status === 'reference_period_unspecified' ? 'Reference period unspecified; no numerical comparison.' : d.status === 'incompatible_evidence' ? 'Incompatible evidence; no numerical comparison.' : 'Unreported or outside coverage; difference unavailable.'}`;
+      if (d.difference_bounds_db) {
+        const b = d.difference_bounds_db;
+        // Rounding a strict bound could strengthen the claim. Keep the exact endpoint.
+        const text = b.lower_db !== null ? `${b.lower_inclusive ? '≥' : '>'}${b.lower_db}` : `${b.upper_inclusive ? '≤' : '<'}${b.upper_db}`;
+        p.textContent = `${letter}: ${text} dB · supported model bound, not an exact difference.`;
+      } else if (d.difference_from_first_db === null) p.textContent = `${letter}: ${d.status === 'reference_period_unspecified' ? 'Reference period unspecified; no numerical comparison.' : d.status === 'incompatible_evidence' ? 'Incompatible evidence; no numerical comparison.' : 'Unreported or outside coverage; difference unavailable.'}`;
       else {
         const delta = d.difference_from_first_db;
         p.textContent = `${letter}: ${delta > 0 ? '+' : ''}${delta.toFixed(1)} dB${d.same_native_cell ? ' · same model cell as A' : ' · modelled difference'}.`;

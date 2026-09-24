@@ -18,6 +18,8 @@ function Test-QuietUK {
         $pilotManifestPath = Join-Path $projectRoot 'artifacts\source_pilot_v1\manifest.json'
         $regionalManifestPath = Join-Path $projectRoot 'artifacts\source_regions_v1\manifest.json'
         if (Test-Path -LiteralPath $regionalManifestPath) { $pilotManifestPath = $regionalManifestPath }
+        $interpretationManifestPath = Join-Path $projectRoot 'artifacts\source_regions_v2\manifest.json'
+        if (Test-Path -LiteralPath $interpretationManifestPath) { $pilotManifestPath = $interpretationManifestPath }
         if (Test-Path -LiteralPath $pilotManifestPath) {
             $expectedPilot = Get-Content -LiteralPath $pilotManifestPath -Raw | ConvertFrom-Json
             $servedPilot = Invoke-RestMethod ($appUrl + 'api/pilot') -TimeoutSec 2

@@ -44,10 +44,10 @@
     if (!location) return;
     const active = location.observations.find(o => o.source === source && o.metric === metric);
     $('point-title').textContent = `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
-    $('point-value').textContent = active.value_db === null ? (active.status === 'outside_pilot' ? 'Outside coverage' : 'Unreported') : `${active.value_db.toFixed(1)} dB(A)`;
+    $('point-value').textContent = active.value_db === null ? (active.display_label || (active.status === 'outside_pilot' ? 'Outside coverage' : 'Unreported')) : `${active.value_db.toFixed(1)} dB(A)`;
     $('map-value').textContent = $('point-value').textContent+' · at selected point';
     $('point-status').textContent = active.value_db === null
-      ? (active.status === 'outside_pilot' ? `Select a point inside the outlined ${areaSize()} × ${areaSize()} km area, or use the England map.` : 'Below a reporting cutoff or missing. A quietness value cannot be assigned.')
+      ? (active.explanation || (active.status === 'outside_pilot' ? `Select a point inside the outlined ${areaSize()} × ${areaSize()} km area, or use the England map.` : 'Below a reporting cutoff or missing. A quietness value cannot be assigned.'))
       : `${names[source]} · ${labels[metric]} · modelled in a 10 m cell`;
     for (const key of Object.keys(names)) {
       const tr = document.createElement('tr'), th = document.createElement('th');
@@ -56,12 +56,21 @@
         const observation = location.observations.find(o => o.source === key && o.metric === m);
         const td = document.createElement('td');
         td.textContent = observation.value_db === null ? '—' : observation.value_db.toFixed(1);
-        td.title = observation.status.replaceAll('_', ' ');
+        td.title = observation.explanation || observation.status.replaceAll('_', ' ');
+        if (observation.value_db === null && observation.display_label) td.textContent = observation.display_label;
         if (key === source && m === metric) td.className = 'active';
         tr.append(td);
       }
       $('comparison').append(tr);
     }
+    const aircraft = location.observations.find(o => o.source === 'aircraft' && o.metric === metric);
+    if (source !== 'aircraft' && aircraft.value_db !== null) {
+      $('map-value').textContent += ` · aircraft ${aircraft.value_db.toFixed(1)} dB(A) also reported`;
+    }
+    $('aircraft-cue').hidden = source === 'aircraft';
+    $('aircraft-evidence').textContent = aircraft.value_db !== null
+      ? `Aircraft is also reported here: ${aircraft.value_db.toFixed(1)} dB(A) ${metric}. It is not included in this ${names[source].toLowerCase()} layer.`
+      : 'Aircraft exposure is unknown here. Missing mapped aircraft evidence does not establish an absence of aviation noise.';
     map.getSource('selected-cell').setData(active.cell ? feature(active.cell) : empty);
     $('point-download').hidden = false;
     $('point-download').href = '/downloads/pilot-location.json?'+new URLSearchParams({site, lon: location.longitude, lat: location.latitude});
@@ -77,6 +86,7 @@
     $('point-title').textContent = `${point[1].toFixed(5)}, ${point[0].toFixed(5)}`;
     $('point-status').textContent = '';
     $('comparison').replaceChildren();
+    $('aircraft-cue').hidden = true;
     $('point-download').hidden = true;
     map.getSource('selected-cell').setData(empty);
     if (!marker) marker = new maplibregl.Marker({color: '#294339'});
@@ -104,6 +114,13 @@
     // Draw underneath geographic labels, but above the basemap's ground layers.
     const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id || 'pilot-outline';
     map.addLayer({id: 'noise', type: 'raster', source: 'noise', layout: {visibility: $('overlay').checked ? 'visible' : 'none'}, paint: {'raster-opacity': .85, 'raster-resampling': 'nearest', 'raster-fade-duration': 0}}, before);
+    $('legend-title').textContent = `${names[source]} · ${metric} · dB(A)`;
+    $('source-scope').textContent = `${names[source]} only · other sources are excluded. This is not overall sound exposure.`;
+    $('unknown-legend').replaceChildren();
+    for (const item of manifest.evidence_contract?.display_missing || [{label:'Unreported / unknown', colour:'#c0b8a5'}]) {
+      const span = document.createElement('span'), swatch = document.createElement('i');
+      swatch.style.backgroundColor = item.colour; span.append(swatch, document.createTextNode(item.label)); $('unknown-legend').append(span);
+    }
     $('metric-note').textContent = manifest.metrics[metric];
     $('period').textContent = p.reference_period ? `Reference period: ${p.reference_period.start.slice(0,4)} · 10 m grid · 4 m above ground` : 'Aircraft reference period: unspecified by provider · 10 m grid';
     $('provider').href = 'https://environment.data.gov.uk/dataset/'+p.metadata_id;
@@ -221,6 +238,7 @@
         $('pilot-search').addEventListener('submit', search);
         $('site').addEventListener('change', () => {++navigation; $('search-results').hidden=true; $('search-status').textContent='Available within the four preview areas.'; site = $('site').value; location = null; updateLayer(); chooseSite();});
         $('sources').addEventListener('change', e => {source = e.target.value; updateLayer();});
+        $('show-aircraft').addEventListener('click', () => { source = 'aircraft'; document.querySelector('input[name="source"][value="aircraft"]').checked = true; updateLayer(); });
         $('metrics').addEventListener('change', e => {metric = e.target.value; updateLayer();});
         $('overlay').addEventListener('change', () => map.setLayoutProperty('noise', 'visibility', $('overlay').checked ? 'visible' : 'none'));
         $('recenter').addEventListener('click', recenter);

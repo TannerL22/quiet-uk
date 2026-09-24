@@ -20,6 +20,9 @@ def main():
     parser.add_argument('--build-only', action='store_true')
     parser.add_argument('--geocoder', default='https://nominatim.openstreetmap.org/search')
     regional = ROOT/'artifacts/source_regions_v1'
+    interpreted = ROOT/'artifacts/source_regions_v2'
+    if (interpreted/'manifest.json').exists():
+        regional = interpreted
     parser.add_argument('--pilot', type=Path, default=regional if (regional/'manifest.json').exists() else ROOT/'artifacts/source_pilot_v1')
     args = parser.parse_args()
     if not args.display.exists():

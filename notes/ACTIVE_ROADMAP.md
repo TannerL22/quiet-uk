@@ -68,14 +68,20 @@ the three release checks also pass when explicitly pointed at the local data.
 See [verification instructions and scope](REPRODUCIBLE_ENVIRONMENT.md#source-only-verification).
 The [hosted matrix passed](https://github.com/TannerL22/quiet-uk/actions/runs/36041725652)
 on source commit `a25b79c`: both Linux versions passed 448 tests; both Windows
-versions passed 447 with one platform skip. The next task is evidence semantics.
+versions passed 447 with one platform skip.
 
-**Next user-facing increment:** distinguish evidence-backed below-cutoff bounds
-from unknown/nodata, correct aircraft cutoff metadata, and make source omissions
-clear. The local raster QA supports different encoding patterns for road/rail
-and aircraft, but observations alone do not prove cutoff semantics. Observed
-airport minima must never become certified ceilings on missing values. Resolve
-and document these meanings before larger acquisitions.
+**Evidence semantics implemented:** release `pilot-70542da395300f52dd27` preserves
+the parent responses and separates numeric zeros, TIFF nodata and extract limits.
+Aircraft cutoff is explicitly unknown; provider minimum, observed extract minimum
+and period evidence are separate. The UI/API/exports share the new contract, and
+road/rail views flag separately reported aircraft at the selected point.
+All 36 million source-indicator cells match the parent and all 36 maps reproduce.
+No ambiguous cell has been promoted to a certified quiet bound. See
+[evidence semantics and verification](EVIDENCE_SEMANTICS.md).
+
+**Next evidence task:** bounded WCS cross-protocol extraction checks and a
+source/domain/airport-period evidence crosswalk. The semantics implementation is
+complete; the broader extraction-fidelity gate remains open before expansion.
 
 | Next phase | Outcome | Exit condition |
 |---|---|---|
