@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#f7f7f1"><title>Quiet UK · A closer look</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/pilot.css">
-  <script src="/vendor/maplibre-gl.js" defer></script><script src="/pilot.js" defer></script>
+  <script src="/vendor/maplibre-gl.js" defer></script><script src="/comparison.js" defer></script><script src="/pilot.js" defer></script>
 </head>
 <body>
   <header><a class="brand" href="/">quiet<span>uk</span></a><span class="edition" id="edition">10 m EXPLORER</span><a id="england-map" href="/">← England map</a></header>
@@ -31,6 +31,14 @@
         <table aria-label="Source and time comparison at selected point"><thead><tr><th scope="col">dB(A)</th><th scope="col">Lden</th><th scope="col">Day</th><th scope="col">Night</th></tr></thead><tbody id="comparison"></tbody></table>
         <p class="small">— = unreported; not silence. Each cell describes one source only. Aircraft’s reference period is unspecified, so these sources are not added together.</p>
         <a id="point-download" class="download" hidden download>Download this point ↓</a>
+        <button id="save-place" class="compare-button" type="button" disabled>＋ Add to comparison</button>
+      </section>
+      <section class="saved-section" aria-labelledby="saved-title">
+        <div class="saved-heading"><h2 id="saved-title">Your places</h2><span id="saved-count">0 / 3</span></div>
+        <ol id="saved-places" aria-label="Places to compare"></ol>
+        <p id="saved-status" class="small" role="status">Add two or three places to compare.</p>
+        <div class="saved-buttons"><button id="open-comparison" class="compare-button" disabled>Compare places ↗</button><button id="clear-comparison" class="text-button" hidden>Clear</button></div>
+        <p class="small">Stored in this browser. Comparison links include the names and coordinates you save.</p>
       </section>
       <details><summary>What this evidence can tell us</summary>
         <p>These are modelled annual indicators at 4 m above ground, not today’s sound or a forecast. A 10 m grid gives finer spatial detail; it does not establish 10 m accuracy.</p>
@@ -49,6 +57,15 @@
       <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p><i></i> Unreported / unknown <span>Uncoloured: outside this pilot</span></p></div>
     </section>
   </main>
+  <dialog id="comparison-dialog" aria-labelledby="comparison-title">
+    <div class="comparison-heading"><div><p class="eyebrow">YOUR PLACES, SIDE BY SIDE</p><h2 id="comparison-title">A closer comparison</h2></div><button id="close-comparison" aria-label="Close comparison">×</button></div>
+    <p id="comparison-status" class="small" role="status"></p>
+    <div class="comparison-scroll" tabindex="0" role="region" aria-label="Noise values for saved places"><table id="places-table"></table></div>
+    <div class="difference-note"><strong id="comparison-focus"></strong><div id="comparison-differences"></div></div>
+    <p class="comparison-caveat">Unreported does not mean quiet. These are separate source averages, not an overall sound level or a ranking of the quietest place. Aircraft’s reference period is unspecified. Small model differences do not establish perceptible or statistically significant differences.</p>
+    <div id="comparison-exports" hidden><a id="comparison-json" class="download" download>Comparison JSON ↓</a><a id="comparison-csv" class="download" download>Observations CSV ↓</a><button id="copy-comparison" class="text-button">Copy comparison link</button></div>
+    <p id="comparison-share-status" class="small" role="status"></p>
+  </dialog>
   <noscript>JavaScript is required for the map. <a href="/downloads/pilot.zip">Download the evidence</a>.</noscript>
 </body>
 </html>

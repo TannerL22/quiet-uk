@@ -3,7 +3,7 @@
 Quiet UK is a general-purpose map for understanding mapped environmental noise.
 Homes, walks, travel and research are possible uses of the same product.
 
-**Current phase, 23 September 2026:** a working local England explorer with a
+**Current phase, 24 September 2026:** a working local England explorer with a
 geographic basemap, place/postcode or coordinate search, nationwide road/rail
 display, visible aircraft evidence, source-view controls, exact 100 m cell inspection, shareable local views,
 and downloadable location/dataset records. Wider UK noise coverage is not yet
@@ -14,6 +14,12 @@ The **10 m explorer** adds fresh, source-linked data for four 10 × 10 km areas
 around Heathrow, Didcot, Oxford and the Chilterns (400 km²). It separates road,
 rail and aircraft with day/night/Lden controls, place search, point comparisons,
 and a downloadable evidence bundle. [Regional release and verification](notes/SOURCE_REGIONAL_RELEASE.md).
+
+In the 10 m explorer, select a point and **Add to comparison**. Save and name up
+to three places, then **Compare places** to see all nine source/time indicators
+side by side. Places persist in your browser; values are re-read from verified
+originals. Download exact observations as CSV or JSON, or copy a release-specific
+local comparison link. [Comparison behaviour and evidence](notes/PLACE_COMPARISON.md).
 
 ## Open the explorer
 
@@ -61,7 +67,7 @@ contract version 2 and does not overwrite earlier display generations.
 | England road/rail map and source-qualified point inspection | Wales, Scotland and Northern Ireland noise integration |
 | Versioned assets, source-linked regional data and evidence exports | National source-linked construction and independent validation |
 | Clear floor ties, withheld values and aircraft limitations | Defensible distinctions between below-threshold quiet places |
-| Responsive explorer, local-view sharing and data explanation | Place comparisons, saved collections and optional context layers |
+| Responsive explorer, saved three-place comparisons, evidence exports and local-view sharing | User-tested workflows, broader detailed coverage and optional context layers |
 
 **Start here:** [Source views and temporal foundation](notes/SOURCE_VIEWS_AND_TEMPORAL_FOUNDATION.md),
 [Original explorer implementation](notes/EXPLORER_PHASE1.md),
