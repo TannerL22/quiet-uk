@@ -1,0 +1,3 @@
+# Provider captures are evidence: checkout must never convert their line endings.
+tests/fixtures/provider/evidence/** -text
+tests/fixtures/provider/raw/** -text

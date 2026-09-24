@@ -3,6 +3,11 @@
 Updated 24 September 2026. This supersedes the delivery ordering in older reviews;
 those documents remain historical evidence.
 
+**Review-adjusted plan:** see [Review response and delivery plan](REVIEW_RESPONSE_AND_DELIVERY_PLAN.md).
+An independent review and local checks changed the next step from coverage
+expansion to portable verification and evidence semantics. The verification
+implementation is recorded below; the other review findings remain planned work.
+
 **Product:** an elegant, general-purpose map for understanding quieter and louder
 places, supported by traceable evidence. Homes, walks and research are applications
 of the product, not separate product identities.
@@ -53,35 +58,44 @@ and links are pinned to the data release and reload verified values. See
 `PLACE_COMPARISON.md`. This implements the comparison workflow; actual user
 testing remains outstanding and no new geographic coverage is claimed.
 
-**Next data increment:** expand verified 10 m coverage through bounded tiled
-acquisition and serving, using the regional storage measurements to set a budget.
-Keep native grid spacing; smaller display pixels would not create new evidence.
-The existing 400 km² now supports direct point comparison for evaluating the
-workflow before scaling it nationally. Aircraft period resolution, independent
-validation and the censored quiet end remain separate research requirements.
+**Portable verification implemented:** the nine artifact-dependent viewer tests
+now use a generated two-component catalogue. Three opt-in release checks retain
+the real 128-component join, catalogue membership and geometry assertions.
+Byte-preserved Defra fixtures cover real metadata and raster encodings, and CI
+runs a Windows/Linux, Python 3.12/3.14 matrix. A source-only copy in a newly
+installed Windows 3.14 environment passes **446 tests, with two platform skips**;
+the three release checks also pass when explicitly pointed at the local data.
+See [verification instructions and scope](REPRODUCIBLE_ENVIRONMENT.md#source-only-verification).
+The hosted matrix must pass before treating the cross-platform gate as complete.
+
+**Next user-facing increment:** distinguish evidence-backed below-cutoff bounds
+from unknown/nodata, correct aircraft cutoff metadata, and make source omissions
+clear. The local raster QA supports different encoding patterns for road/rail
+and aircraft, but observations alone do not prove cutoff semantics. Observed
+airport minima must never become certified ceilings on missing values. Resolve
+and document these meanings before larger acquisitions.
 
 | Next phase | Outcome | Exit condition |
 |---|---|---|
-| Source-linked data canary and release preparation | Establish a traceable construction path under the research contract | Original evidence recovered or new acquisition linked to exact provider products, periods and snapshots; clean-environment reproduction and canary scientific QA pass |
-| User-tested explorer beta | Improve comparison and exploration based on observed needs | Fresh users find a place, distinguish unknown evidence, compare 2–3 locations and share a view without coaching; add saved places only if useful |
-| Deployable England release | Stable read-only distribution, attribution, operating budget and rollback | Verified compatible web/analytical generations; public-serving hardening and provider usage arrangements; user reviews a concrete deployment |
-| UK coverage | Country adapters with honest comparability | Scotland, Wales and Northern Ireland data inventoried, licensed, transformed and validated with country-specific metric/domain metadata |
-| Independently validated quietness improvements | Better distinctions where current maps censor the quiet end | Predefined external validation criteria pass; uncertainty and failures published; existing experimental road model corrected before consideration |
+| Portable verification | A checkout others can test | Default Windows/Linux suites pass without local artifacts; release integration checks remain explicit; provider fixtures exercise real encodings |
+| Evidence semantics and extraction fidelity | Consistent source-qualified states and exports | Verified bounds distinguished from unknowns; aircraft minima/thresholds/period evidence separated; small WCS cross-protocol checks pass; new interpretation release preserves raw originals |
+| Coherent, user-tested explorer | One understandable map experience and independently runnable regional data | Consistent legends and source warnings; 4/5 users complete core tasks, none in the formative sample equates unknown with silence or misses Heathrow aircraft evidence |
+| Tiled 50 × 50 km canary | Bounded expansion and measured serving costs | Exact overlaps, resumability, immutable serving snapshots, bounded-memory exports, tile/latency checks and explicit acquisition budgets |
+| Traceable England release and public beta | Replace the provisional overview, then distribute reliably | Versioned analytical/display products, clear coverage, discrepancy reports, attribution, provider arrangements, operating limits and rollback |
+| UK coverage and validated richer evidence | Country adapters and justified new indicators | Country-specific source/metric/period validation; independent validation appropriate to claims; no inferred event histories or invented quiet-end precision |
 
-The next data phase does not require redesigning the explorer or building a large
-platform. Start with bounded canaries. Introduce day/night/source separation,
-research area/route exports, access or other contexts only when the relevant data
-contract and user question justify them.
+Documentary and extraction validation proceeds alongside these phases. Field
+validation requires a separately designed source/season/year-matched protocol;
+it does not block every improvement to the exploratory map. Freeze speculative
+road models, candidate-screening expansion, event features and further historical
+archaeology. Retain evidence and tests; do not delete modules based on line count.
 
-The clarified default product view should include all compatible supported
-transport sources, with optional road/rail/aircraft controls. Heathrow is a required
-validation case: a road/rail-only display must not imply low overall exposure where
-aircraft evidence is present. Before implementation, verify metric/period
-compatibility and obtain separate road and rail products. The data canary must
-also inventory available temporal/event evidence, following the multiple-metric
-contract: distinguish what supports long-term exposure, background sound and loud
-events, and identify unavailable metrics. Do not infer event histories from annual
-rasters or delay a bounded release until every metric has national coverage.
+The product must keep every supported transport source visible in its explanation,
+with optional source controls. Heathrow remains a required validation case: a
+road-only display must not imply low overall exposure where aircraft evidence is
+present. Any future numeric combination requires compatible metric, period,
+coverage and construction. Preserve the distinction between annual averages,
+background sound and loud events, and state which remain unavailable.
 
 Each task must name its user behaviour or evidence gap, bounded deliverable and
 completion check. Demonstrate the product regularly. Do not use additional models,

@@ -1,0 +1,13 @@
+{
+  "request_url": "https://environment.data.gov.uk/spatialdata/noise-data/wcs?service=WCS&version=1.0.0&request=GetCoverage&coverage=3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947%3ARail_Noise_Lden_England_Round_4_All&bbox=506925.0%2C174115.0%2C508925.0%2C176115.0&crs=EPSG%3A27700&response_crs=EPSG%3A27700&width=200&height=200&format=GeoTIFF",
+  "response_url": "https://environment.data.gov.uk/spatialdata/noise-data/wcs?service=WCS&version=1.0.0&request=GetCoverage&coverage=3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947%3ARail_Noise_Lden_England_Round_4_All&bbox=506925.0%2C174115.0%2C508925.0%2C176115.0&crs=EPSG%3A27700&response_crs=EPSG%3A27700&width=200&height=200&format=GeoTIFF",
+  "retrieved_at_utc": "2026-09-22T17:38:09.516658+00:00",
+  "status": 200,
+  "sha256": "9bec5141b33d178a59c68a052e0471651a190d5cb915c86d4186f9b8273ced94",
+  "bytes": 173458,
+  "response_headers": {
+    "Date": "Tue, 22 Sep 2026 17:38:03 GMT",
+    "Content-Type": "image/tiff"
+  },
+  "redirects": []
+}

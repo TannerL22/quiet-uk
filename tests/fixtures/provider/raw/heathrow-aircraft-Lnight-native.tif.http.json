@@ -1,0 +1,13 @@
+{
+  "request_url": "https://environment.data.gov.uk/spatialdata/airport-noise-all-metrics-england-round-4/wcs?service=WCS&version=2.0.1&request=GetCoverage&coverageId=dac9cba4-abe7-43bd-b8e9-8a83da52edd8__Airport_Noise_ALL_Lnight&format=image%2Ftiff&subset=E%28506925.0%2C508925.0%29&subset=N%28174115.0%2C176115.0%29",
+  "response_url": "https://environment.data.gov.uk/spatialdata/airport-noise-all-metrics-england-round-4/wcs?service=WCS&version=2.0.1&request=GetCoverage&coverageId=dac9cba4-abe7-43bd-b8e9-8a83da52edd8__Airport_Noise_ALL_Lnight&format=image%2Ftiff&subset=E%28506925.0%2C508925.0%29&subset=N%28174115.0%2C176115.0%29",
+  "retrieved_at_utc": "2026-09-22T17:38:33.769526+00:00",
+  "status": 200,
+  "sha256": "1b0e0f23b4f1c1eb7084d0fae33fe543a9ec0ae27744137069fe4eab1a044620",
+  "bytes": 346634,
+  "response_headers": {
+    "Date": "Tue, 22 Sep 2026 17:38:28 GMT",
+    "Content-Type": "image/tiff"
+  },
+  "redirects": []
+}

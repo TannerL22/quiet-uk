@@ -1,0 +1,13 @@
+{
+  "request_url": "https://environment.data.gov.uk/spatialdata/noise-data/wcs?service=WCS&version=1.0.0&request=DescribeCoverage&coverage=3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947%3ARail_Noise_Lden_England_Round_4_All",
+  "response_url": "https://environment.data.gov.uk/spatialdata/noise-data/wcs?service=WCS&version=1.0.0&request=DescribeCoverage&coverage=3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947%3ARail_Noise_Lden_England_Round_4_All",
+  "retrieved_at_utc": "2026-09-22T17:33:43.047235+00:00",
+  "status": 200,
+  "sha256": "aaa6e672e0523d5a05e604075d7eb387307b7e2e41cdfec60957cdb3f5a68d7c",
+  "bytes": 2621,
+  "response_headers": {
+    "Date": "Tue, 22 Sep 2026 17:33:37 GMT",
+    "Content-Type": "application/xml"
+  },
+  "redirects": []
+}

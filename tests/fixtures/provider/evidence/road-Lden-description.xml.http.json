@@ -1,0 +1,13 @@
+{
+  "request_url": "https://environment.data.gov.uk/spatialdata/road-noise-all-metrics-england-round-4/wcs?service=WCS&version=1.0.0&request=DescribeCoverage&coverage=562c9d56-7c2d-4d42-83bb-578d6e97a517%3ARoad_Noise_Lden_England_Round_4_All",
+  "response_url": "https://environment.data.gov.uk/spatialdata/road-noise-all-metrics-england-round-4/wcs?service=WCS&version=1.0.0&request=DescribeCoverage&coverage=562c9d56-7c2d-4d42-83bb-578d6e97a517%3ARoad_Noise_Lden_England_Round_4_All",
+  "retrieved_at_utc": "2026-09-22T17:33:36.418281+00:00",
+  "status": 200,
+  "sha256": "fd8033f2e2b4fb581b563665ee96b4878ba0ea6fd08182121e6c9e3ff66bf5f4",
+  "bytes": 2621,
+  "response_headers": {
+    "Date": "Tue, 22 Sep 2026 17:33:30 GMT",
+    "Content-Type": "application/xml"
+  },
+  "redirects": []
+}
