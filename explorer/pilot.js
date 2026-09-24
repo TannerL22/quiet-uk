@@ -6,18 +6,40 @@
   const labels = {Lden: 'Lden', Lday: 'Day · 07:00–19:00', Lnight: 'Night · 23:00–07:00'};
   let manifest, map, marker, location, selection = 0, navigation = 0;
   let site = 'heathrow', source = 'aircraft', metric = 'Lden';
-  let point;
+  let point, comparison;
+  let savedMarkers = [];
   const empty = {type: 'FeatureCollection', features: []};
   const message = text => { $('message').textContent = text; $('message').hidden = !text; };
   const record = () => manifest.records.find(r => r.site === site && r.source === source && r.metric === metric);
   const feature = geometry => ({type: 'Feature', properties: {}, geometry});
   const areaSize = () => (manifest.sites[site].size_m || 2000)/1000;
+  // Pasting another comparison link into this same tab can change only the
+  // fragment. Reload to validate its release/recipe just like a fresh visit.
+  // Our own replaceState updates do not fire hashchange.
+  window.addEventListener('hashchange', () => window.location.reload());
   function saveView() {
     const params = new URLSearchParams({site, source, metric, v: manifest.release_id});
     if (point) params.set('point', point.map(x => x.toFixed(6)).join(','));
+    const places = comparison?.getPlaces() || [];
+    if (places.length) params.set('compare', JSON.stringify(places));
     history.replaceState(null, '', '#'+params.toString());
   }
+  function showSavedMarkers() {
+    savedMarkers.forEach(marker => marker.remove()); savedMarkers = [];
+    (comparison?.getPlaces() || []).forEach((p,i) => {
+      const el = document.createElement('button'); el.className = 'saved-map-marker'; el.textContent = String.fromCharCode(65+i);
+      el.setAttribute('aria-label', `Show saved place ${p.label}`);
+      el.addEventListener('click', event => {event.stopPropagation(); showSavedPlace(p);});
+      savedMarkers.push(new maplibregl.Marker({element:el, anchor:'bottom', offset:[0,-8]}).setLngLat([p.longitude,p.latitude]).addTo(map));
+    });
+    saveView();
+  }
+  function showSavedPlace(p) {
+    ++navigation; site = p.site; $('site').value = site; location = null;
+    updateLayer(); map.jumpTo({center:[p.longitude,p.latitude],zoom:15}); inspect([p.longitude,p.latitude]);
+  }
   function renderPoint() {
+    comparison?.update(location, source, metric);
     $('comparison').replaceChildren();
     if (!location) return;
     const active = location.observations.find(o => o.source === source && o.metric === metric);
@@ -49,6 +71,7 @@
     point = coords;
     $('england-map').href = '/#'+new URLSearchParams({map:`${coords[1]},${coords[0]},12`,point:`${coords[1]},${coords[0]}`,view:'both'});
     location = null;
+    comparison?.update(null, source, metric);
     $('point-value').textContent = 'Checking this point…';
     $('map-value').textContent = 'Checking selected point…';
     $('point-title').textContent = `${point[1].toFixed(5)}, ${point[0].toFixed(5)}`;
@@ -187,6 +210,8 @@
         map.addLayer({id: 'pilot-outline', type: 'line', source: 'pilot-area', paint: {'line-color': '#506d51', 'line-width': 2, 'line-dasharray': [3,2]}});
         map.addSource('selected-cell', {type: 'geojson', data: empty});
         map.addLayer({id: 'cell-outline', type: 'line', source: 'selected-cell', paint: {'line-color': '#203d35', 'line-width': 2}});
+        comparison = createPlaceComparison({manifest, initialHash:hash, onShow:showSavedPlace, onChange:showSavedMarkers});
+        showSavedMarkers();
         updateLayer(); chooseSite();
         if (savedPoint?.length === 2 && savedPoint.every(Number.isFinite) && Math.abs(savedPoint[0])<=180 && Math.abs(savedPoint[1])<=90) findPoint(savedPoint,'Saved point',++navigation);
         if (hash.has('v') && hash.get('v') !== manifest.release_id) message('This saved link used a different pilot release. The current verified release is shown.');

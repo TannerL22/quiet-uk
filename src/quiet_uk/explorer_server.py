@@ -2,6 +2,7 @@
 from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import json
 import re
 import threading
 import time
@@ -11,6 +12,7 @@ import requests
 
 from .explorer import json_bytes
 from .catalogue import CatalogueIntegrityError, CatalogueError
+from .comparison import compare_places, comparison_csv
 
 
 class PlaceSearch:
@@ -77,6 +79,15 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                     return self._json({'error': 'The source pilot has not been built on this machine.'}, 404)
                 if url.path == '/api/pilot':
                     return self._json(pilot.manifest)
+                if url.path in ('/api/pilot/comparison', '/downloads/pilot-comparison.json', '/downloads/pilot-comparison.csv'):
+                    if set(params) != {'places', 'release'} or any(len(v) != 1 for v in params.values()) or len(params['places'][0]) > 2500:
+                        raise ValueError('Supply one bounded place list and release')
+                    result = compare_places(pilot, json.loads(params['places'][0]), params['release'][0])
+                    if url.path.endswith('.csv'):
+                        return self._send(comparison_csv(result), 'text/csv; charset=utf-8', filename=pilot.manifest['release_id']+'-comparison.csv')
+                    if url.path.endswith('.json'):
+                        return self._send(json_bytes(result), 'application/json; charset=utf-8', filename=pilot.manifest['release_id']+'-comparison.json')
+                    return self._json(result)
                 if url.path == '/api/pilot/locate':
                     if set(params) != {'lon', 'lat'} or any(len(v) != 1 for v in params.values()):
                         raise ValueError('Supply one longitude and latitude')
@@ -117,6 +128,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             assets = {'/': ('index.html', 'text/html; charset=utf-8'),
                       '/pilot': ('pilot.html', 'text/html; charset=utf-8'),
                       '/pilot.js': ('pilot.js', 'text/javascript'), '/pilot.css': ('pilot.css', 'text/css'),
+                      '/comparison.js': ('comparison.js', 'text/javascript'),
                       '/app.js': ('app.js', 'text/javascript'), '/styles.css': ('styles.css', 'text/css'),
                       '/vendor/maplibre-gl.js': ('vendor/maplibre-gl.js', 'text/javascript'),
                       '/vendor/maplibre-gl.css': ('vendor/maplibre-gl.css', 'text/css')}

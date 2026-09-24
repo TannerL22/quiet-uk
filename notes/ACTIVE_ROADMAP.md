@@ -1,6 +1,6 @@
 # Quiet UK active roadmap
 
-Updated 23 September 2026. This supersedes the delivery ordering in older reviews;
+Updated 24 September 2026. This supersedes the delivery ordering in older reviews;
 those documents remain historical evidence.
 
 **Product:** an elegant, general-purpose map for understanding quieter and louder
@@ -43,6 +43,22 @@ A newly installed isolated environment passes the full suite and reproduces all
 36 maps from the portable evidence bundle offline. This closes the bounded
 Windows environment-reproduction check; broader platform support and independent
 scientific validation remain open. See `SOURCE_REGIONAL_RELEASE.md`.
+
+**Completed place-comparison increment:** the 10 m explorer saves up to three
+named points locally, shows all nine source/time indicators side by side, and
+exports exact observations with native-cell geometry, source hashes, coverage
+identifiers and reference periods. Numerical differences require matching declared
+periods; missing values never become zero or a quietness ranking. Saved recipes
+and links are pinned to the data release and reload verified values. See
+`PLACE_COMPARISON.md`. This implements the comparison workflow; actual user
+testing remains outstanding and no new geographic coverage is claimed.
+
+**Next data increment:** expand verified 10 m coverage through bounded tiled
+acquisition and serving, using the regional storage measurements to set a budget.
+Keep native grid spacing; smaller display pixels would not create new evidence.
+The existing 400 km² now supports direct point comparison for evaluating the
+workflow before scaling it nationally. Aircraft period resolution, independent
+validation and the censored quiet end remain separate research requirements.
 
 | Next phase | Outcome | Exit condition |
 |---|---|---|
