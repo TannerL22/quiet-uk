@@ -1,6 +1,6 @@
 # Quiet UK active roadmap
 
-Updated 24 September 2026. This supersedes the delivery ordering in older reviews;
+Updated 25 September 2026. This supersedes the delivery ordering in older reviews;
 those documents remain historical evidence.
 
 **Review-adjusted plan:** see [Review response and delivery plan](REVIEW_RESPONSE_AND_DELIVERY_PLAN.md).
@@ -79,9 +79,22 @@ All 36 million source-indicator cells match the parent and all 36 maps reproduce
 No ambiguous cell has been promoted to a certified quiet bound. See
 [evidence semantics and verification](EVIDENCE_SEMANTICS.md).
 
-**Next evidence task:** bounded WCS cross-protocol extraction checks and a
-source/domain/airport-period evidence crosswalk. The semantics implementation is
-complete; the broader extraction-fidelity gate remains open before expansion.
+**Bounded extraction audit completed:** 28 protocol pairs yielded 15 exact
+matches, 11 unavailable comparisons and two grid mismatches at coverage edges.
+All 31 successful interior responses with earlier reference crops match exactly.
+Road-night and aircraft cross-protocol checks remain unavailable for the tested
+requests. Existing production validation rejects the observed clipped/rescaled
+edge responses. The entire small audit replays offline from a checked-in bundle.
+See [provider encoding and extraction audit](PROVIDER_ENCODING_AND_EXTRACTION_AUDIT.md).
+
+**Next evidence task:** obtain citable provider zero/nodata and calculation-domain
+definitions, and an airport threshold/period/product crosswalk. A
+[technical clarification draft](PROVIDER_CLARIFICATION_DRAFT.md) is ready but has
+not been sent. The documented reporting floors alone do not certify unknown
+cells as quiet; no additional bounds are enabled. Continue coherent explorer
+improvements independently while this authority gate remains open. Before tiled
+expansion, account explicitly for provider rectangle edges and retain the native
+grid checks; incomplete cross-protocol evidence remains a recorded limitation.
 
 | Next phase | Outcome | Exit condition |
 |---|---|---|

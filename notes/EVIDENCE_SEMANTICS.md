@@ -1,5 +1,10 @@
 # Source evidence semantics, 24 September 2026
 
+Follow-up: the [25 September provider audit](PROVIDER_ENCODING_AND_EXTRACTION_AUDIT.md)
+records protocol comparisons, edge behaviour and documented nil encodings.
+It does not establish a universal zero rule or calculation-domain mask; the
+interpretation release and its quietness bounds remain unchanged.
+
 The 10 m explorer now uses interpretation release `pilot-70542da395300f52dd27`
 at `artifacts/source_regions_v2`, derived from `pilot-d0aa536e7c93d05b09fe`.
 The parent release, all original responses and its construction code are preserved.
