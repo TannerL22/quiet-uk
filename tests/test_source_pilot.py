@@ -171,7 +171,7 @@ def test_pilot_http_routes_and_integrity(pilot):
     base = f'http://127.0.0.1:{server.server_port}'
     lon,lat = coords(pilot, col=2)
     try:
-        assert b'A closer look' in urlopen(base+'/pilot').read()
+        assert b'id="inspect-centre"' in urlopen(base+'/pilot').read()
         assert json.load(urlopen(base+'/api/pilot'))['release_id'] == pilot.manifest['release_id']
         assert json.load(urlopen(base+f'/api/pilot/locate?lon={lon}&lat={lat}'))['sites'] == ['heathrow']
         assert json.load(urlopen(base+'/api/pilot/locate?lon=-2&lat=53'))['sites'] == []
