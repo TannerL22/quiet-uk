@@ -3,10 +3,10 @@
   const $ = id => document.getElementById(id);
   const names = {road: 'Road', rail: 'Rail', aircraft: 'Aircraft'};
   const metrics = ['Lden', 'Lday', 'Lnight'];
-  const labels = {Lden: 'Lden', Lday: 'Day · 07:00–19:00', Lnight: 'Night · 23:00–07:00'};
+  const labels = {Lden: 'Daily average · Lden', Lday: 'Day · 07:00–19:00', Lnight: 'Night · 23:00–07:00'};
   let manifest, map, marker, location, selection = 0, navigation = 0;
   let site = 'heathrow', source = 'aircraft', metric = 'Lden';
-  let point, comparison;
+  let point, comparison, capabilities;
   let savedMarkers = [];
   const empty = {type: 'FeatureCollection', features: []};
   const message = text => { $('message').textContent = text; $('message').hidden = !text; };
@@ -16,13 +16,20 @@
   // Pasting another comparison link into this same tab can change only the
   // fragment. Reload to validate its release/recipe just like a fresh visit.
   // Our own replaceState updates do not fire hashchange.
+  document.querySelectorAll('a[href="#inspect-centre"], a[href="#point-title"]').forEach(a => a.addEventListener('click', event => {
+    event.preventDefault(); const target = document.querySelector(a.getAttribute('href'));
+    target.focus(); target.scrollIntoView({block:'center'});
+  }));
   window.addEventListener('hashchange', () => window.location.reload());
   function saveView() {
-    const params = new URLSearchParams({site, source, metric, v: manifest.release_id});
+    const params = new URLSearchParams({site, source, metric, v: manifest.release_id, noise:$('overlay').checked?'1':'0'});
+    if (map) { const c = map.getCenter(); params.set('camera', [c.lng.toFixed(6),c.lat.toFixed(6),map.getZoom().toFixed(2)].join(',')); }
     if (point) params.set('point', point.map(x => x.toFixed(6)).join(','));
     const places = comparison?.getPlaces() || [];
     if (places.length) params.set('compare', JSON.stringify(places));
     history.replaceState(null, '', '#'+params.toString());
+    const coords = point || manifest.sites[site].center;
+    $('england-map').href = '/overview#'+new URLSearchParams({map:`${coords[1]},${coords[0]},12`,point:`${coords[1]},${coords[0]}`,view:'both',detail:params.toString()});
   }
   function showSavedMarkers() {
     savedMarkers.forEach(marker => marker.remove()); savedMarkers = [];
@@ -78,7 +85,6 @@
   async function inspect(coords) {
     const current = ++selection;
     point = coords;
-    $('england-map').href = '/#'+new URLSearchParams({map:`${coords[1]},${coords[0]},12`,point:`${coords[1]},${coords[0]}`,view:'both'});
     location = null;
     comparison?.update(null, source, metric);
     $('point-value').textContent = 'Checking this point…';
@@ -114,19 +120,20 @@
     // Draw underneath geographic labels, but above the basemap's ground layers.
     const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id || 'pilot-outline';
     map.addLayer({id: 'noise', type: 'raster', source: 'noise', layout: {visibility: $('overlay').checked ? 'visible' : 'none'}, paint: {'raster-opacity': .85, 'raster-resampling': 'nearest', 'raster-fade-duration': 0}}, before);
-    $('legend-title').textContent = `${names[source]} · ${metric} · dB(A)`;
+    $('legend-title').textContent = `${names[source]} · ${labels[metric]} · dB(A)`;
     $('source-scope').textContent = `${names[source]} only · other sources are excluded. This is not overall sound exposure.`;
     $('unknown-legend').replaceChildren();
     for (const item of manifest.evidence_contract?.display_missing || [{label:'Unreported / unknown', colour:'#c0b8a5'}]) {
       const span = document.createElement('span'), swatch = document.createElement('i');
       swatch.style.backgroundColor = item.colour; span.append(swatch, document.createTextNode(item.label)); $('unknown-legend').append(span);
     }
-    $('metric-note').textContent = manifest.metrics[metric];
+    $('metric-note').textContent = metric === 'Lden' ? '*Lden: annual daily energy average, with added weighting for evening and night. It does not describe background sound or individual loud events.' : manifest.metrics[metric];
     $('period').textContent = p.reference_period ? `Reference period: ${p.reference_period.start.slice(0,4)} · 10 m grid · 4 m above ground` : 'Aircraft reference period: unspecified by provider · 10 m grid';
     $('provider').href = 'https://environment.data.gov.uk/dataset/'+p.metadata_id;
     $('map-title').textContent = `${names[source]} · ${labels[metric]}`;
     $('area-size').textContent = `${areaSize()} × ${areaSize()} km`;
     map.getSource('pilot-area').setData(feature(r.footprint));
+    map.getSource('all-areas').setData({type:'FeatureCollection', features:manifest.records.filter(item => item.source === source && item.metric === metric).map(item => ({...feature(item.footprint),properties:{name:manifest.sites[item.site].name}}))});
     renderPoint();
     saveView();
   }
@@ -140,7 +147,12 @@
     recenter();
     inspect(manifest.sites[site].center);
   }
-  async function findPoint(coords, label, ticket) {
+  async function findPoint(coords, label, ticket, move = true) {
+    ++selection; location = null; comparison?.update(null, source, metric);
+    $('point-download').hidden = true; $('aircraft-cue').hidden = true;
+    $('point-value').textContent = 'Checking coverage…';
+    $('point-status').textContent = ''; $('comparison').replaceChildren();
+    map.getSource('selected-cell').setData(empty);
     $('search-status').textContent = 'Checking detailed coverage…';
     try {
       const response = await fetch('/api/pilot/locate?'+new URLSearchParams({lon:coords[0],lat:coords[1]}), {signal:AbortSignal.timeout(10000)});
@@ -153,12 +165,12 @@
         $('site').value = site; location = null; updateLayer();
         $('search-status').textContent = `${label} · ${manifest.sites[site].name}`;
       } else {
-        $('search-status').textContent = `${label} is outside the four detailed areas. Use the England map for wider coverage.`;
+        $('search-status').textContent = `${label} is outside the available detailed areas. No noise level is available from this release here. Use Show all areas to explore coverage.`;
       }
-      map.jumpTo({center:coords,zoom:14.5});
-      inspect(coords);
+      if (move) map.jumpTo({center:coords,zoom:14.5});
+      await inspect(coords);
     } catch {
-      if (ticket === navigation) $('search-status').textContent = 'Coverage could not be checked. Try again or select an area.';
+      if (ticket === navigation) { $('search-status').textContent = 'Coverage could not be checked. Try again or select an area.'; $('point-value').textContent = 'Coverage unavailable'; }
     }
   }
   async function search(event) {
@@ -193,21 +205,34 @@
   }
   async function start() {
     try {
+      const app = await fetch('/api/app', {signal: AbortSignal.timeout(15000)});
+      if (!app.ok) throw new Error(); capabilities = await app.json();
+      let hash = new URLSearchParams(window.location.hash.slice(1));
+      if (window.location.pathname === '/' && hash.has('map') && !hash.has('site')) {
+        if (capabilities.overview_release) { window.location.replace('/overview'+window.location.hash); return; }
+        message('This link refers to the historical overview, which is not installed. Available detailed areas are shown instead.'); hash = new URLSearchParams();
+      }
+      $('overview-note').textContent = capabilities.overview_release ? 'Wider coverage is available in the separate, provisional historical overview.' : 'Detailed coverage only; the historical overview is not installed.';
       const response = await fetch('/api/pilot', {signal: AbortSignal.timeout(15000)});
       if (!response.ok) throw new Error();
       manifest = await response.json();
-      const hash = new URLSearchParams(window.location.hash.slice(1));
+      if (!manifest.sites[site]) site = Object.keys(manifest.sites)[0];
       if (manifest.sites[hash.get('site')]) site = hash.get('site');
       if (Object.hasOwn(names, hash.get('source'))) source = hash.get('source');
       if (metrics.includes(hash.get('metric'))) metric = hash.get('metric');
       const savedPoint = hash.get('point')?.split(',').map(Number);
+      const camera = hash.get('camera')?.split(',').map(Number);
+      $('overlay').checked = hash.get('noise') !== '0';
       for (const [id, s] of Object.entries(manifest.sites)) {
         const option = document.createElement('option'); option.value = id; option.textContent = s.name; $('site').append(option);
       }
       $('site').value = site;
       const areaCount = Object.keys(manifest.sites).length;
       const areaTotal = Object.values(manifest.sites).reduce((sum,s)=>sum+((s.size_m||2000)/1000)**2,0);
-      $('intro').textContent = `Explore ${areaCount} areas covering ${areaTotal} km² with original 10 m model grids. Choose a source and compare annual day and night averages.`;
+      $('coverage-title').textContent = `${areaCount} detailed areas · ${areaTotal} km²`;
+      $('coverage-note').textContent = 'Outlines mark available areas. Outside them, no detailed noise level is available.';
+      $('search-status').textContent = `Detailed evidence is available in ${areaCount} areas.`;
+      $('intro').textContent = 'Explore modelled transport noise by source and time of day.';
       document.querySelector(`input[name="source"][value="${source}"]`).checked = true;
       document.querySelector(`input[name="metric"][value="${metric}"]`).checked = true;
       for (const colour of manifest.display.colours) {const span = document.createElement('span'); span.style.background = colour; $('legend-scale').append(span);}
@@ -222,30 +247,50 @@
       map = new maplibregl.Map({container: 'map', style, center: manifest.sites[site].center, zoom: 14, maxZoom: 20});
       map.addControl(new maplibregl.NavigationControl({showCompass: false}), 'top-right');
       map.on('error', e => {if (e.sourceId === 'noise') message('The selected noise overlay could not be loaded. Point inspection still provides verified values.');});
-      map.on('load', () => {
+      map.on('load', async () => {
+        map.addSource('all-areas', {type:'geojson',data:empty});
+        map.addLayer({id:'coverage-fill',type:'fill',source:'all-areas',paint:{'fill-color':'#258b92','fill-opacity':.06}});
+        map.addLayer({id:'coverage-outline',type:'line',source:'all-areas',paint:{'line-color':'#258b92','line-width':2}});
         map.addSource('pilot-area', {type: 'geojson', data: empty});
         map.addLayer({id: 'pilot-outline', type: 'line', source: 'pilot-area', paint: {'line-color': '#506d51', 'line-width': 2, 'line-dasharray': [3,2]}});
         map.addSource('selected-cell', {type: 'geojson', data: empty});
         map.addLayer({id: 'cell-outline', type: 'line', source: 'selected-cell', paint: {'line-color': '#203d35', 'line-width': 2}});
         comparison = createPlaceComparison({manifest, initialHash:hash, onShow:showSavedPlace, onChange:showSavedMarkers});
         showSavedMarkers();
-        updateLayer(); chooseSite();
-        if (savedPoint?.length === 2 && savedPoint.every(Number.isFinite) && Math.abs(savedPoint[0])<=180 && Math.abs(savedPoint[1])<=90) findPoint(savedPoint,'Saved point',++navigation);
+        updateLayer(); recenter();
+        if (savedPoint?.length === 2 && savedPoint.every(Number.isFinite) && Math.abs(savedPoint[0])<=180 && Math.abs(savedPoint[1])<=90) await findPoint(savedPoint,'Saved point',++navigation);
+        else await inspect(manifest.sites[site].center);
+        if (camera?.length === 3 && camera.every(Number.isFinite) && Math.abs(camera[0]) <= 180 && Math.abs(camera[1]) <= 85 && camera[2] >= 0 && camera[2] <= 20) map.jumpTo({center:camera.slice(0,2),zoom:camera[2]});
+        saveView(); map.on('moveend', saveView);
+        $('england-map').hidden = !capabilities.overview_release;
         if (hash.has('v') && hash.get('v') !== manifest.release_id) message('This saved link used a different pilot release. The current verified release is shown.');
         $('site').disabled = false;
         $('sources').disabled = false; $('metrics').disabled = false; $('recenter').disabled = false;
         $('place').disabled = false; $('search-button').disabled = false;
         $('pilot-search').addEventListener('submit', search);
-        $('site').addEventListener('change', () => {++navigation; $('search-results').hidden=true; $('search-status').textContent='Available within the four preview areas.'; site = $('site').value; location = null; updateLayer(); chooseSite();});
+        $('site').addEventListener('change', () => {++navigation; $('search-results').hidden=true; $('search-status').textContent=`Detailed evidence is available in ${areaCount} areas.`; site = $('site').value; location = null; updateLayer(); chooseSite();});
         $('sources').addEventListener('change', e => {source = e.target.value; updateLayer();});
         $('show-aircraft').addEventListener('click', () => { source = 'aircraft'; document.querySelector('input[name="source"][value="aircraft"]').checked = true; updateLayer(); });
         $('metrics').addEventListener('change', e => {metric = e.target.value; updateLayer();});
-        $('overlay').addEventListener('change', () => map.setLayoutProperty('noise', 'visibility', $('overlay').checked ? 'visible' : 'none'));
+        $('overlay').addEventListener('change', () => { map.setLayoutProperty('noise', 'visibility', $('overlay').checked ? 'visible' : 'none'); saveView(); });
         $('recenter').addEventListener('click', recenter);
-        map.on('click', e => {++navigation; $('search-results').hidden=true; inspect([e.lngLat.lng, e.lngLat.lat]);});
+        $('show-coverage').disabled = false; $('inspect-centre').disabled = false; $('share-view').disabled = false;
+        $('show-coverage').addEventListener('click', () => {
+          const bounds = new maplibregl.LngLatBounds();
+          manifest.records.filter(r => r.source === source && r.metric === metric).forEach(r => r.display.corners.forEach(c => bounds.extend(c)));
+          map.fitBounds(bounds, {padding:{top:150,bottom:190,left:35,right:35},duration:0});
+          $('search-status').textContent = 'Outlines show available areas. Select one on the map or choose it above. Only the selected area is coloured.';
+        });
+        $('inspect-centre').addEventListener('click', () => { const c = map.getCenter(); findPoint([c.lng,c.lat],'Map centre',++navigation,false); });
+        $('share-view').addEventListener('click', async () => {
+          saveView();
+          try { await navigator.clipboard.writeText(window.location.href); $('share-status').textContent = 'View link copied. This local link works on this computer.'; }
+          catch { $('share-status').textContent = 'Copy the address bar to share this view on this computer.'; }
+        });
+        map.on('click', e => { $('search-results').hidden=true; findPoint([e.lngLat.lng, e.lngLat.lat],'Selected point',++navigation,false); });
       });
     } catch {
-      message('The pilot could not be loaded. Return to the England map, or restart the app with the launcher.');
+      message('Detailed evidence could not be loaded. Restart with the launcher or provide a verified regional bundle.');
       $('point-value').textContent = 'Pilot unavailable';
     }
   }

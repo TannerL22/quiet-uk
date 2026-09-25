@@ -5,6 +5,13 @@
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let map, dataset, marker, selected, selectionTitle, selectedPoint, sourceView = 'both';
   let lookupController, searchController, searchSequence = 0, toastTimer;
+  const detail = new URLSearchParams(location.hash.slice(1)).get('detail');
+  if (detail) {
+    const saved = new URLSearchParams(detail), sourceLabel = {road:'Road',rail:'Rail',aircraft:'Aircraft'}[saved.get('source')] || 'Source', metricLabel = {Lden:'Lden',Lday:'Day',Lnight:'Night'}[saved.get('metric')] || 'time indicator';
+    $('detail-context').hidden = false;
+    $('detail-context').textContent = `This overview uses historical Lden evidence with different construction. Your ${sourceLabel} · ${metricLabel} detailed view is saved in the return link.`;
+  }
+  if (detail) document.querySelectorAll('a[href="/pilot"]').forEach(a => { a.href = '/pilot#'+detail; a.textContent = 'Return to detailed view ↗'; });
   const empty = {type:'FeatureCollection', features:[]};
 
   function toast(message) {
@@ -34,6 +41,7 @@
     if (!map || !dataset) return;
     const c = map.getCenter();
     const hash = new URLSearchParams({v:dataset.release_id, map:`${c.lat.toFixed(5)},${c.lng.toFixed(5)},${map.getZoom().toFixed(2)}`, view:sourceView, noise:$('noise-toggle').checked?'1':'0', opacity:$('opacity').value});
+    if (detail) hash.set('detail',detail);
     if (selectedPoint) hash.set('point', `${selectedPoint[1].toFixed(6)},${selectedPoint[0].toFixed(6)}`);
     history.replaceState(null, '', '#'+hash.toString());
   }
@@ -209,7 +217,7 @@
       map.on('load', () => {
         const labels = map.getStyle().layers.find(layer => layer.type==='symbol');
         for (const mode of ['road_rail','aircraft','aircraft_presence']) {
-          map.addSource(mode+'-data',{type:'raster',tiles:[`${location.origin}/tiles/${dataset.release_id}/${mode}/{z}/{x}/{y}.png`],tileSize:256,minzoom:5,maxzoom:16,bounds:dataset.bounds_wgs84,attribution:'Noise: configured Defra products · historical linkage unresolved'});
+          map.addSource(mode+'-data',{type:'raster',tiles:[`${location.origin}/tiles/${dataset.release_id}/${mode}/{z}/{x}/{y}.png?style=global-hatch-1`],tileSize:256,minzoom:5,maxzoom:16,bounds:dataset.bounds_wgs84,attribution:'Noise: configured Defra products · historical linkage unresolved'});
           map.addLayer({id:mode,type:'raster',source:mode+'-data',layout:{visibility:'none'},paint:{'raster-opacity':Number($('opacity').value)/100,'raster-resampling':'nearest','raster-fade-duration':0}}, labels?.id);
         }
         map.addSource('selected-cell',{type:'geojson',data:empty});
