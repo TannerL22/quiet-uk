@@ -3,6 +3,7 @@ from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import json
+import os
 import re
 import threading
 import time
@@ -13,6 +14,7 @@ import requests
 from .explorer import json_bytes
 from .catalogue import CatalogueIntegrityError, CatalogueError
 from .comparison import compare_places, comparison_csv
+from .serving_snapshot import RegionalSnapshot, COPY_CHUNK
 
 
 class PlaceSearch:
@@ -63,6 +65,25 @@ class ExplorerHandler(BaseHTTPRequestHandler):
     def _json(self, value, status=200):
         self._send(json_bytes(value), 'application/json; charset=utf-8', status)
 
+    def _send_archive(self, path, filename):
+        # Open before sending headers so read/open failures can still be a 503.
+        with path.open('rb') as stream:
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/zip')
+            self.send_header('Content-Length', str(os.fstat(stream.fileno()).st_size))
+            self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+            self.end_headers()
+            try:
+                while chunk := stream.read(COPY_CHUNK):
+                    self.wfile.write(chunk)
+            except OSError:
+                # A disconnect or disk error after headers must terminate the
+                # response, never append a JSON error to a partial ZIP.
+                self.close_connection = True
+
     def do_GET(self):
         host = self.headers.get('Host', '')
         allowed = {f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}'}
@@ -76,6 +97,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             if url.path == '/api/app':
                 return self._json({'app': 'quiet-uk', 'interface_version': 2,
                                    'default_view': 'regional' if self.server.pilot else 'overview',
+                                   'regional_serving': 'private_snapshot_v1' if self.server.pilot else None,
                                    'regional_release': self.server.pilot.manifest['release_id'] if self.server.pilot else None,
                                    'overview_release': explorer.manifest['release_id'] if explorer else None})
             national = (url.path in ('/api/dataset', '/api/location', '/downloads/dataset.json', '/downloads/location.json', '/overview')
@@ -104,7 +126,12 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                         raise ValueError('Supply one longitude and latitude')
                     return self._json({'sites': pilot.locate(float(params['lon'][0]), float(params['lat'][0]))})
                 if url.path == '/downloads/pilot.zip':
-                    return self._send(pilot.bundle(), 'application/zip', filename=pilot.manifest['release_id']+'.zip')
+                    if not self.server.download_slots.acquire(blocking=False):
+                        return self._json({'error': 'Evidence downloads are busy. Try again shortly.'}, 503)
+                    try:
+                        return self._send_archive(pilot.bundle_path(), pilot.manifest['release_id']+'.zip')
+                    finally:
+                        self.server.download_slots.release()
                 if url.path in ('/api/pilot/location', '/downloads/pilot-location.json'):
                     if set(params) != {'site', 'lon', 'lat'} or any(len(v) != 1 for v in params.values()):
                         raise ValueError('Supply one pilot site, longitude and latitude')
@@ -162,13 +189,25 @@ class ExplorerHandler(BaseHTTPRequestHandler):
 
 
 class ExplorerServer(ThreadingHTTPServer):
-    daemon_threads = True
+    # Wait for in-flight requests before removing their private data files.
+    daemon_threads = False
 
     def __init__(self, port, explorer, asset_root, search=None, pilot=None):
         self.explorer, self.asset_root = explorer, Path(asset_root)
         self.search = search or PlaceSearch()
-        self.pilot = pilot
+        self.pilot = None
+        self.download_slots = threading.BoundedSemaphore(2)
         super().__init__(('127.0.0.1', port), ExplorerHandler)
+        try:
+            self.pilot = RegionalSnapshot(pilot) if pilot is not None else None
+        except BaseException:
+            super().server_close()
+            raise
+
+    def server_close(self):
+        super().server_close()
+        if self.pilot is not None:
+            self.pilot.close()
 
     def get_request(self):
         connection, address = super().get_request()

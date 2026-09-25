@@ -100,8 +100,21 @@ regional release without requiring a national release. The local full suite pass
 **Next product checkpoint:** run the [five-person usability check](EXPLORER_USABILITY_CHECK.md).
 Desktop/narrow-screen browser checks establish operation, not comprehension.
 No participant sessions have been completed, so the user-tested phase remains open.
-Use findings to refine the existing explorer. Before larger acquisition, address
-immutable serving and bounded downloads, then measure the 50 × 50 km canary.
+Use findings to refine the existing explorer. The regional serving prerequisite
+below is implemented; next define acquisition/storage budgets and measure the
+50 × 50 km canary before committing to wider coverage.
+
+**Regional serving isolation implemented:** the server copies and hashes exact
+release bytes into a private temporary snapshot, reuses up to 48 exclusively
+borrowed raster readers, and builds one disk-backed evidence ZIP. Downloads stream
+in bounded chunks with two concurrent slots; normal shutdown waits for requests
+before cleanup. Source-folder edits cannot alter a running regional reader.
+On the current Windows machine, 200 HTTP requests per workload at five concurrent
+users measured p95 92 ms for nine-indicator points and 204 ms for three-place
+comparisons. First export used about 4.6 MB of Python allocations for 298 MB of
+source evidence; total process peak RSS was about 301 MB. These are regional,
+warm-filesystem measurements, not national-scale or hard whole-process memory
+bounds. See [scope, reproduction and remaining work](REGIONAL_SERVING.md).
 
 **Next evidence task:** obtain citable provider zero/nodata and calculation-domain
 definitions, and an airport threshold/period/product crosswalk. A

@@ -59,6 +59,6 @@ feedback, not a population-wide usability claim or acoustic validation.
 - Numerical seam regressions compare adjacent historical tiles against a single
   continuous rendering canvas. Scientific source values and release IDs are unchanged.
 
-Remaining serving work includes immutable reader snapshots, avoiding repeated
-whole-file hashing, and bounded/prebuilt evidence downloads. This increment does
-not claim those performance or deployment gates are complete.
+The subsequent [regional serving increment](REGIONAL_SERVING.md) implements private
+reader snapshots and bounded, reusable disk exports. Canary expansion, public
+deployment and the participant sessions above remain separate outstanding gates.
