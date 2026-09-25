@@ -3,7 +3,7 @@
 Quiet UK is a general-purpose map for understanding mapped environmental noise.
 Homes, walks, travel and research are possible uses of the same product.
 
-**Current phase, 24 September 2026:** a working local England explorer with a
+**Current phase, 25 September 2026:** a working local England explorer with a
 geographic basemap, place/postcode or coordinate search, nationwide road/rail
 display, visible aircraft evidence, source-view controls, exact 100 m cell inspection, shareable local views,
 and downloadable location/dataset records. Wider UK noise coverage is not yet
@@ -19,6 +19,12 @@ The latest local interpretation separates zero-coded unknowns from missing cells
 keeps aircraft cutoffs explicitly unknown, and warns when aircraft evidence is
 excluded from a road/rail view. Original source values are unchanged.
 [Evidence meanings and verification](notes/EVIDENCE_SEMANTICS.md).
+
+The [provider extraction audit](notes/PROVIDER_ENCODING_AND_EXTRACTION_AUDIT.md)
+now replays offline from checked-in captures. Successful interior checks agree;
+coverage-edge changes and unavailable protocol comparisons remain explicit.
+Provider zero/domain definitions are still unresolved, so no additional quietness
+bounds have been assigned.
 
 In the 10 m explorer, select a point and **Add to comparison**. Save and name up
 to three places, then **Compare places** to see all nine source/time indicators
