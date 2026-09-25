@@ -135,8 +135,9 @@ def select_coverage(identifiers, source, metric):
     return candidates[0]
 
 
-def inventory(root):
+def inventory(root, *, capture_response=None):
     root = Path(root)
+    capture = capture_response or globals()['capture']
     products = {}
     for source, provider in PROVIDERS.items():
         base = f'https://environment.data.gov.uk/spatialdata/{provider["service"]}/wcs'
@@ -264,19 +265,19 @@ def site_bounds(site, grid):
     return [float(cx-half-5), float(cy-half-5), float(cx+half-5), float(cy+half-5)]
 
 
-def grid_shape(bounds):
+def grid_shape(bounds, *, max_cells=1000):
     if len(bounds) != 4 or not np.isfinite(bounds).all():
         raise ValueError('Expected four finite grid bounds')
     w, s, e, n = bounds
     dimensions = np.array([(n-s)/10, (e-w)/10])
-    if np.any(dimensions <= 0) or np.any(dimensions > MAX_SITE_SIZE_M/10) or not np.allclose(dimensions, np.round(dimensions), rtol=0, atol=1e-7):
-        raise ValueError('Grid bounds must describe at most 1000 native 10 m cells per axis')
+    if np.any(dimensions <= 0) or np.any(dimensions > max_cells) or not np.allclose(dimensions, np.round(dimensions), rtol=0, atol=1e-7):
+        raise ValueError(f'Grid bounds must describe at most {max_cells} native 10 m cells per axis')
     return tuple(int(round(x)) for x in dimensions)
 
 
-def coverage_params(product, metric, bounds):
+def coverage_params(product, metric, bounds, *, max_cells=1000):
     w, s, e, n = bounds
-    height, width = grid_shape(bounds)
+    height, width = grid_shape(bounds, max_cells=max_cells)
     request = product['requests_by_metric'][metric]
     identifier, version = request['coverage_id'], request['version']
     common = [('service', 'WCS'), ('version', version), ('request', 'GetCoverage')]
@@ -289,11 +290,11 @@ def coverage_params(product, metric, bounds):
                      ('subset', f'E({w},{e})'), ('subset', f'N({s},{n})')]
 
 
-def inspect_raster(path, bounds, grid, metric):
+def inspect_raster(path, bounds, grid, metric, *, max_cells=1000):
     with rasterio.open(path) as ds:
         if ds.crs != rasterio.crs.CRS.from_epsg(27700) or ds.count != 1:
             raise ValueError('Expected a single-band EPSG:27700 raster')
-        if ds.shape != grid_shape(bounds) or not np.allclose(ds.bounds, bounds, rtol=0, atol=1e-7):
+        if ds.shape != grid_shape(bounds, max_cells=max_cells) or not np.allclose(ds.bounds, bounds, rtol=0, atol=1e-7):
             raise ValueError(f'Unexpected raster extent/shape: {ds.bounds} {ds.shape}; expected {bounds}')
         t = ds.transform
         if not np.allclose((t.a, t.b, t.d, t.e), (10, 0, 0, -10), rtol=0, atol=1e-7):
