@@ -2,17 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f7f7f1"><title>Quiet UK · A closer look</title>
+  <meta name="theme-color" content="#f7f7f1"><title>Quiet UK · Explore quieter places</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/pilot.css">
   <script src="/vendor/maplibre-gl.js" defer></script><script src="/comparison.js" defer></script><script src="/pilot.js" defer></script>
 </head>
 <body>
-  <header><a class="brand" href="/">quiet<span>uk</span></a><span class="edition" id="edition">10 m EXPLORER</span><a id="england-map" href="/">← England map</a></header>
+  <a class="skip-link" href="#inspect-centre">Skip to map inspection</a>
+  <header><a class="brand" href="/">quiet<span>uk</span></a><span class="edition" id="edition">10 m EXPLORER</span><a id="england-map" href="/overview" hidden>Historical overview ↗</a></header>
   <main>
     <aside aria-label="Pilot controls and location evidence">
-      <p class="eyebrow">A CLOSER LOOK</p><h1>Different sources.<br><em>Different hours.</em></h1>
+      <p class="eyebrow">EXPLORE THE EVIDENCE</p><h1>Find your<br><em>quieter places.</em></h1>
       <p class="intro" id="intro">Explore places with the original 10 m model grids. Choose a source and compare annual day and night averages.</p>
+      <section class="coverage-card" aria-label="Available coverage"><strong id="coverage-title">Detailed regional coverage</strong><p id="coverage-note">Loading available areas…</p><button type="button" id="show-coverage" disabled>Show all areas</button><p id="overview-note"></p></section>
       <form id="pilot-search" role="search">
         <label class="control-label" for="place">Find a place</label>
         <div class="search-box"><input id="place" placeholder="Town, postcode or coordinates" autocomplete="off" disabled><button type="submit" id="search-button" aria-label="Search places" disabled>→</button></div>
@@ -22,16 +24,18 @@
       <label class="control-label" for="site">Explore an area <span id="area-size">Loading coverage…</span></label>
       <select id="site" disabled aria-label="Pilot area"></select>
       <fieldset id="sources" disabled><legend>Noise source</legend><label><input type="radio" name="source" value="road" checked>Road</label><label><input type="radio" name="source" value="rail">Rail</label><label><input type="radio" name="source" value="aircraft">Aircraft</label></fieldset>
-      <fieldset id="metrics" disabled><legend>Time indicator</legend><label><input type="radio" name="metric" value="Lden" checked>Lden</label><label><input type="radio" name="metric" value="Lday">Day</label><label><input type="radio" name="metric" value="Lnight">Night</label></fieldset>
+      <fieldset id="metrics" disabled><legend>Time indicator</legend><label><input type="radio" name="metric" value="Lden" checked>Daily average*</label><label><input type="radio" name="metric" value="Lday">Day</label><label><input type="radio" name="metric" value="Lnight">Night</label></fieldset>
       <p id="source-scope" class="source-scope" role="status"></p>
       <p id="metric-note" class="small"></p>
       <div class="period"><span id="period">Loading source evidence…</span><a id="provider" target="_blank" rel="noopener">Provider record ↗</a></div>
       <section class="inspection" aria-labelledby="point-title">
-        <p class="eyebrow">AT THIS POINT</p><h2 id="point-title">Select a place on the map</h2>
+        <p class="eyebrow">AT THIS POINT</p><h2 id="point-title" tabindex="-1">Select a place on the map</h2>
         <p id="point-value" aria-live="polite">Loading…</p><p id="point-status" class="small"></p>
         <div id="aircraft-cue" class="aircraft-cue" hidden><p id="aircraft-evidence"></p><button id="show-aircraft" type="button">Show aircraft layer</button></div>
+        <details class="all-indicators"><summary>All sources and time indicators</summary>
         <table aria-label="Source and time comparison at selected point"><thead><tr><th scope="col">dB(A)</th><th scope="col">Lden</th><th scope="col">Day</th><th scope="col">Night</th></tr></thead><tbody id="comparison"></tbody></table>
         <p class="small">Unknown or — means no supported level; not silence. Each cell describes one source only. Aircraft’s reference period is unspecified, so these sources are not added together.</p>
+        </details>
         <a id="point-download" class="download" hidden download>Download this point ↓</a>
         <button id="save-place" class="compare-button" type="button" disabled>＋ Add to comparison</button>
       </section>
@@ -53,10 +57,10 @@
       <p class="credits">Defra, Crown copyright / database rights 2023–2024. <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener">Open Government Licence</a>. Basemap requests go to OpenFreeMap. Submitted place searches go to OpenStreetMap Nominatim; coordinate searches stay local. No analytics.</p>
     </aside>
     <section class="map-panel" aria-label="Interactive source noise map">
-      <div id="map"></div>
-      <div class="map-caption"><strong id="map-title">Source pilot</strong><span id="map-value">Select a point inside the outlined area</span><button id="recenter" disabled>Return to area</button></div>
+      <div id="map"></div><span class="centre-crosshair" aria-hidden="true">+</span>
+      <div class="map-caption"><strong id="map-title">Source pilot</strong><span id="map-value">Select a point inside the outlined area</span><div class="map-actions"><button id="recenter" disabled>Return to area</button><button id="inspect-centre" disabled>Inspect map centre</button><button id="share-view" disabled>Copy view link</button><a href="#point-title">Point details ↓</a></div><span id="share-status" role="status"></span></div>
       <p id="message" role="status" hidden></p>
-      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p id="unknown-legend"></p><p>Uncoloured: outside this extract</p></div>
+      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p id="unknown-legend"></p><p>Only the selected area is coloured. Outlines show available detailed areas.</p></div>
     </section>
   </main>
   <dialog id="comparison-dialog" aria-labelledby="comparison-title">

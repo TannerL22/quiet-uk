@@ -73,6 +73,17 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         params = parse_qs(url.query)
         explorer = self.server.explorer
         try:
+            if url.path == '/api/app':
+                return self._json({'app': 'quiet-uk', 'interface_version': 2,
+                                   'default_view': 'regional' if self.server.pilot else 'overview',
+                                   'regional_release': self.server.pilot.manifest['release_id'] if self.server.pilot else None,
+                                   'overview_release': explorer.manifest['release_id'] if explorer else None})
+            national = (url.path in ('/api/dataset', '/api/location', '/downloads/dataset.json', '/downloads/location.json', '/overview')
+                        or url.path.startswith('/tiles/'))
+            if national and explorer is None:
+                if url.path == '/overview':
+                    return self._send(b'<h1>Historical overview not installed</h1><p>The detailed regional map is available independently.</p><a href="/">Open Quiet UK</a>', 'text/html; charset=utf-8', 404)
+                return self._json({'error': 'Historical overview not installed. Use the detailed regional map.', 'code': 'overview_unavailable'}, 404)
             if url.path.startswith(('/api/pilot', '/downloads/pilot', '/pilot-images/')):
                 pilot = self.server.pilot
                 if pilot is None:
@@ -125,7 +136,8 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                 if tile[1] != explorer.manifest['release_id']:
                     return self._json({'error': 'Unknown dataset generation'}, 404)
                 return self._send(explorer.tile(*map(int, tile.groups()[2:]), mode=tile[2]), 'image/png', cache='public, max-age=3600')
-            assets = {'/': ('index.html', 'text/html; charset=utf-8'),
+            assets = {'/': ('pilot.html' if self.server.pilot else 'index.html', 'text/html; charset=utf-8'),
+                      '/overview': ('index.html', 'text/html; charset=utf-8'),
                       '/pilot': ('pilot.html', 'text/html; charset=utf-8'),
                       '/pilot.js': ('pilot.js', 'text/javascript'), '/pilot.css': ('pilot.css', 'text/css'),
                       '/comparison.js': ('comparison.js', 'text/javascript'),

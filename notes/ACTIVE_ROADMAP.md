@@ -87,6 +87,22 @@ requests. Existing production validation rejects the observed clipped/rescaled
 edge responses. The entire small audit replays offline from a checked-in bundle.
 See [provider encoding and extraction audit](PROVIDER_ENCODING_AND_EXTRACTION_AUDIT.md).
 
+**Regional explorer delivery implemented:** the regional bundle can run without
+historical data using `--regional-only --pilot PATH`. Regional data is the default
+home when installed, with all-area outlines, explicit outside-coverage feedback,
+keyboard centre inspection, shareable camera/source/metric state, and a folded
+nine-indicator table. The optional historical overview is explicitly separate;
+return navigation preserves the detailed selection. Historical tile hatching now
+uses global coordinates. The launcher identifies the running application and
+regional release without requiring a national release. The local full suite passed
+474 tests (two Windows skips; three opt-in release checks deselected).
+
+**Next product checkpoint:** run the [five-person usability check](EXPLORER_USABILITY_CHECK.md).
+Desktop/narrow-screen browser checks establish operation, not comprehension.
+No participant sessions have been completed, so the user-tested phase remains open.
+Use findings to refine the existing explorer. Before larger acquisition, address
+immutable serving and bounded downloads, then measure the 50 × 50 km canary.
+
 **Next evidence task:** obtain citable provider zero/nodata and calculation-domain
 definitions, and an airport threshold/period/product crosswalk. A
 [technical clarification draft](PROVIDER_CLARIFICATION_DRAFT.md) is ready but has

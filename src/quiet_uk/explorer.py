@@ -211,7 +211,7 @@ def rgba_png(rgba):
     return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('!2I5B', w, h, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
 
 
-def colourize(energy, quality, mode='road_rail'):
+def colourize(energy, quality, mode='road_rail', pixel_origin=(0, 0)):
     rgba = np.zeros((*energy.shape, 4), dtype='uint8')
     valid = (quality == 1) & (energy > 0)
     db = 10*np.log10(np.maximum(energy, 1))
@@ -221,7 +221,7 @@ def colourize(energy, quality, mode='road_rail'):
     rgba[valid, 3] = 220
     unknown = (quality >= 2) | ((quality == 1) & ~valid)
     yy, xx = np.indices(energy.shape)
-    stripes = ((xx+yy) % 10) < 4
+    stripes = ((xx+pixel_origin[0]+yy+pixel_origin[1]) % 10) < 4
     rgba[unknown, :3] = 158
     rgba[unknown, 3] = np.where(stripes[unknown], 220, 110)
     if mode == 'aircraft':
@@ -257,7 +257,7 @@ class Explorer:
             with rasterio.open(self.root/name) as src, WarpedVRT(src, crs='EPSG:3857', transform=target,
                     width=256, height=256, resampling=method, nodata=src.nodata) as vrt:
                 arrays.append(vrt.read(1))
-        return rgba_png(colourize(*arrays, mode=mode))
+        return rgba_png(colourize(*arrays, mode=mode, pixel_origin=(x*256, y*256)))
 
     def lookup(self, longitude, latitude):
         if not all(math.isfinite(v) for v in [longitude, latitude]) or not (-11 <= longitude <= 3 and 49 <= latitude <= 61):

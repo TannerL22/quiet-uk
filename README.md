@@ -3,14 +3,14 @@
 Quiet UK is a general-purpose map for understanding mapped environmental noise.
 Homes, walks, travel and research are possible uses of the same product.
 
-**Current phase, 25 September 2026:** a working local England explorer with a
-geographic basemap, place/postcode or coordinate search, nationwide road/rail
-display, visible aircraft evidence, source-view controls, exact 100 m cell inspection, shareable local views,
-and downloadable location/dataset records. Wider UK noise coverage is not yet
-implemented. The historical data is explicitly provisional; this is not yet an
-independently validated research exposure release.
+**Current phase, 25 September 2026:** a working local 10 m regional explorer with
+coverage outlines, source/time controls, place and coordinate search, keyboard
+point inspection, saved comparisons and evidence downloads. It runs independently
+of the optional historical England-wide 100 m overview. Wider UK noise coverage
+is not yet implemented. This is an exploratory product, not an independently
+validated research exposure release.
 
-The **10 m explorer** adds fresh, source-linked data for four 10 × 10 km areas
+The **10 m explorer** contains source-linked data for four 10 × 10 km areas
 around Heathrow, Didcot, Oxford and the Chilterns (400 km²). It separates road,
 rail and aircraft with day/night/Lden controls, place search, point comparisons,
 and a downloadable evidence bundle. [Regional release and verification](notes/SOURCE_REGIONAL_RELEASE.md).
@@ -63,12 +63,35 @@ From this directory on the existing Windows environment:
 .\.venv\Scripts\python.exe scripts\29_serve_explorer.py
 ```
 
-Open **http://127.0.0.1:8766/**. The first launch builds derived display assets
-from the existing catalogue, mask and tiles; subsequent launches verify and
-reuse them. The scientific inputs are not rebuilt or overwritten. An incomplete
-or incompatible display directory is rejected; use `--display` with a new path
-to publish a new generation. An existing data checkout is required; a source-only
-clone does not contain the historical rasters.
+Open **http://127.0.0.1:8766/**. The original 10 m regional map is the home
+page when a regional release is installed. **Show all areas** reveals its coverage;
+**Inspect map centre** supports keyboard use. The selected source/time value is
+shown first, with the nine-indicator table under **All sources and time indicators**.
+View links preserve the source, metric, point, camera, overlay visibility and release.
+
+A fresh source checkout plus an extracted regional evidence ZIP is sufficient:
+
+```text
+python scripts/29_serve_explorer.py --regional-only --pilot PATH_TO_EXTRACTED_BUNDLE
+```
+
+Use the directory containing `manifest.json`. No historical catalogue, mask or
+national raster is needed in this mode. The source checkout itself contains test
+fixtures, not the regional scientific release: obtain the existing **Download data
+& evidence** ZIP from a data-equipped installation, or follow the regional
+acquisition instructions below. The normal launcher discovers the standard local
+`source_regions_v2`, `source_regions_v1` or `source_pilot_v1` locations.
+
+When all historical inputs are installed, normal startup also enables the
+explicit **Historical overview** link at `/overview`. Its construction and Lden
+meaning are labelled separately; returning restores the detailed selection.
+Existing national links at `/#map=…` continue to open that overview when available.
+With only historical data installed, the overview remains the home page.
+
+Startup verifies existing releases; it no longer implicitly builds national data.
+Use `--build-only` explicitly to build/verify a historical display from the original
+catalogue, mask and tiles. Incomplete or incompatible installed releases are not
+repaired silently. Use a new `--display` destination for a new display generation.
 
 Git tracks the application, tests, dependency lock and documentation. Downloaded
 rasters, generated `artifacts/` (including catalogues, display assets and evidence
@@ -80,11 +103,11 @@ reproduction instructions.
 
 The basemap needs internet access to OpenFreeMap. Submitted place searches use
 OpenStreetMap Nominatim; coordinate searches and analytical lookups are local.
-Try `53.256, -1.783` for an offline coordinate search. Shared links preserve the
+Try `51.464852, -0.447622` for a local coordinate lookup at Heathrow. Shared links preserve the
 view and dataset version, but this loopback preview is accessible only on the
 same computer. No public deployment has been made.
 
-The default **Together** view overlays purple aircraft-presence hatching on
+In the optional historical overview, **Together** overlays purple aircraft-presence hatching on
 road/rail upper-bound colours. **Aircraft** shows its reported lower-bound colours;
 **Road + rail** hides aircraft and explicitly warns about that omission. These
 are separate historical evidence layers, not a validated numerical total. Road

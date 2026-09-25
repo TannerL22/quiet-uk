@@ -11,10 +11,8 @@ $ownsLock = $false
 
 function Test-QuietUK {
     try {
-        $record = Invoke-RestMethod ($appUrl + 'api/dataset') -TimeoutSec 2
-        if (-not (Test-Path -LiteralPath $releasePath)) { return $false }
-        $expected = Get-Content -LiteralPath $releasePath -Raw | ConvertFrom-Json
-        if ($record.release_id -ne $expected.release_id -or $record.display_contract_version -ne 2) { return $false }
+        $record = Invoke-RestMethod ($appUrl + 'api/app') -TimeoutSec 2
+        if ($record.app -ne 'quiet-uk' -or $record.interface_version -ne 2) { return $false }
         $pilotManifestPath = Join-Path $projectRoot 'artifacts\source_pilot_v1\manifest.json'
         $regionalManifestPath = Join-Path $projectRoot 'artifacts\source_regions_v1\manifest.json'
         if (Test-Path -LiteralPath $regionalManifestPath) { $pilotManifestPath = $regionalManifestPath }
@@ -22,9 +20,16 @@ function Test-QuietUK {
         if (Test-Path -LiteralPath $interpretationManifestPath) { $pilotManifestPath = $interpretationManifestPath }
         if (Test-Path -LiteralPath $pilotManifestPath) {
             $expectedPilot = Get-Content -LiteralPath $pilotManifestPath -Raw | ConvertFrom-Json
-            $servedPilot = Invoke-RestMethod ($appUrl + 'api/pilot') -TimeoutSec 2
-            if ($servedPilot.release_id -ne $expectedPilot.release_id) { return $false }
-        }
+            if ($record.regional_release -ne $expectedPilot.release_id) { return $false }
+            if ($record.overview_release) {
+                if (-not (Test-Path -LiteralPath $releasePath)) { return $false }
+                $expected = Get-Content -LiteralPath $releasePath -Raw | ConvertFrom-Json
+                if ($record.overview_release -ne $expected.release_id) { return $false }
+            }
+        } elseif (Test-Path -LiteralPath $releasePath) {
+            $expected = Get-Content -LiteralPath $releasePath -Raw | ConvertFrom-Json
+            if ($record.overview_release -ne $expected.release_id) { return $false }
+        } else { return $false }
         return $true
     } catch { return $false }
 }
