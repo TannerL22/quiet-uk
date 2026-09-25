@@ -541,6 +541,9 @@ class SourcePilot:
                 matches.add(record['site'])
         return [site for site in self.manifest['sites'] if site in matches]
 
+    def open_raster(self, name):
+        return rasterio.open(self.verified_path(name))
+
     def lookup(self, site, lon, lat):
         if site not in self.manifest['sites'] or not np.isfinite([lon, lat]).all() or not (-180 <= lon <= 180 and -90 <= lat <= 90):
             raise ValueError('Choose a pilot site and finite longitude/latitude')
@@ -553,7 +556,7 @@ class SourcePilot:
             if record['site'] != site:
                 continue
             product = self.manifest['products'][record['source']]
-            with rasterio.open(self.verified_path(record['path'])) as ds:
+            with self.open_raster(record['path']) as ds:
                 row, col = ds.index(x[0], y[0]) if projectable else (-1, -1)
                 inside = 0 <= row < ds.height and 0 <= col < ds.width
                 raw, value, cell = None, None, None
@@ -621,12 +624,24 @@ class SourcePilot:
                 'verified_files': len(self.manifest['files']), 'display_reproduced': reproduce}
 
     def bundle(self):
+        """Small in-memory convenience export; serving uses write_bundle instead."""
         output = io.BytesIO()
+        self.write_bundle(output)
+        return output.getvalue()
+
+    def write_bundle(self, output):
+        """Write a portable archive to a path or file, with bounded file buffers."""
         with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:
             bundle.writestr('manifest.json', json_bytes(self.manifest))
             for name in self.manifest['files']:
-                bundle.writestr(name, self.verified_path(name).read_bytes())
-        return output.getvalue()
+                digest = hashlib.sha256()
+                with self.verified_path(name).open('rb') as incoming, bundle.open(name, 'w', force_zip64=True) as outgoing:
+                    while chunk := incoming.read(1024 * 1024):
+                        digest.update(chunk)
+                        outgoing.write(chunk)
+                if digest.hexdigest() != self.manifest['files'][name]:
+                    raise CatalogueIntegrityError('Evidence changed during export: '+name)
+                self.verified_path(name)
 
 
 def compare_reference(candidate, reference):

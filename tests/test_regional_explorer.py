@@ -27,6 +27,7 @@ def test_standalone_app_routes_and_evidence(pilot):
     try:
         app = json.load(urlopen(base+'/api/app'))
         assert app['regional_release'] == pilot.manifest['release_id']
+        assert app['regional_serving'] == 'private_snapshot_v1'
         assert app['overview_release'] is None and app['default_view'] == 'regional'
         assert b'id="coverage-note"' in urlopen(base+'/').read()
         assert b'id="inspect-centre"' in urlopen(base+'/pilot').read()

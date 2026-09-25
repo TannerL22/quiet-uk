@@ -93,6 +93,16 @@ Use `--build-only` explicitly to build/verify a historical display from the orig
 catalogue, mask and tiles. Incomplete or incompatible installed releases are not
 repaired silently. Use a new `--display` destination for a new display generation.
 
+Regional startup makes a private, checksum-verified copy in the operating-system
+temporary directory. The running app stays pinned to those bytes if the original
+folder changes; restart to load another release. A maximum of 48 raster readers
+are reused with exclusive access. Evidence ZIPs are built once on disk and streamed,
+with at most two simultaneous downloads. Normal shutdown removes the private copy
+and ZIP; forced termination may leave a `quiet-uk-serving-*` temporary directory.
+Allow extra disk space for the copied release and its ZIP (about 328 MB for the
+current regional release). Historical overview serving is unchanged.
+See [serving isolation, measurements and limitations](notes/REGIONAL_SERVING.md).
+
 Git tracks the application, tests, dependency lock and documentation. Downloaded
 rasters, generated `artifacts/` (including catalogues, display assets and evidence
 bundles), local configuration and Python environments remain outside Git. Updating

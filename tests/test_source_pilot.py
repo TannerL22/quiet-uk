@@ -189,6 +189,11 @@ def test_pilot_http_routes_and_integrity(pilot):
         with pytest.raises(HTTPError) as exc: urlopen(Request(base+'/api/pilot',headers={'Origin':'https://example.org'}))
         assert exc.value.code == 403
         (pilot.root/r['display']['path']).write_bytes(b'changed')
+        # The running reader is pinned to its verified private release.
+        assert urlopen(base+image).read().startswith(b'\x89PNG')
+        private = server.pilot.root/r['display']['path']
+        private.chmod(0o600)
+        private.write_bytes(b'changed')
         with pytest.raises(HTTPError) as exc: urlopen(base+image)
         assert exc.value.code == 503
     finally:

@@ -19,6 +19,7 @@ function Test-QuietUK {
         $interpretationManifestPath = Join-Path $projectRoot 'artifacts\source_regions_v2\manifest.json'
         if (Test-Path -LiteralPath $interpretationManifestPath) { $pilotManifestPath = $interpretationManifestPath }
         if (Test-Path -LiteralPath $pilotManifestPath) {
+            if ($record.regional_serving -ne 'private_snapshot_v1') { return $false }
             $expectedPilot = Get-Content -LiteralPath $pilotManifestPath -Raw | ConvertFrom-Json
             if ($record.regional_release -ne $expectedPilot.release_id) { return $false }
             if ($record.overview_release) {
