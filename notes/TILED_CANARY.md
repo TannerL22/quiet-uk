@@ -62,6 +62,34 @@ compared to the saved products. A changed product identifier/period stops work
 for review. Use the same code checkout throughout an acquisition; the sealed
 result retains the verifier/construction sources and dependency lock.
 
+### Recovery from damaged checkpoints
+
+An interruption during the first live run left the latest `records.json` and 20
+request journals zero-filled. Atomic rename had protected the filename transition
+but had not ensured that recently buffered file contents survived. Checkpoint
+writes now flush and `fsync` the temporary file before rename; completed response
+bodies are flushed before publishing their completed journals. POSIX also syncs
+the containing directory. These steps improve durability, not immunity to disk
+failure or power loss.
+
+Explicit `--recover-checkpoint` preserves the original damaged checkpoint and
+journals, reconstructs request identity only where the pinned recipe matches the
+request-directory hash, and marks those journals unavailable. It does not invent
+HTTP status, retrieval time or missing checksums. Each unavailable attempt remains
+charged a full 32 MiB allowance and counts toward the attempt limit. Its body
+cannot be reused. The accepted list is rebuilt only from intact successful journals
+whose body hashes, request identity and raster QA verify, then seam/reference
+checks run again. Damaged metadata or changed completed response bytes stop for
+review. Sealed releases are never repaired in place.
+
+The actual recovery restored 110 accepted rasters; 130 intact request journals
+(including discovery) had unchanged body hashes. It retained 20 damaged journals
+and the zero-filled checkpoint, passed 148 shared-strip comparisons and matched
+9,566,402 reference cells. Reacquisition uses the original budgets rather than
+resetting counters. Evidence is under `recovery/` and `*.json.damaged` within the
+canary directory. A regression reproduces lost-journal/checkpoint damage and
+checks that only provable responses are reused.
+
 ## Completion and offline checks
 
 Publication is last: `manifest.json` appears only after all planned tile/indicator
@@ -87,6 +115,9 @@ python scripts/33_tiled_canary.py --acquire --max-new-rasters 9
 
 # Resume the remaining work within the SAME cumulative budgets.
 python scripts/33_tiled_canary.py --acquire
+
+# Only when the checkpoint/journals are damaged; preserves the original evidence.
+python scripts/33_tiled_canary.py --recover-checkpoint
 
 # Full offline replay after completion; requires the original reference release.
 python scripts/33_tiled_canary.py --verify

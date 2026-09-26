@@ -84,7 +84,7 @@ def compare_window(left, right, bounds):
         return arrays[0].size
 
 
-def verify(root, reference, *, require_complete=True):
+def verify(root, reference, *, require_complete=True, records=None):
     root = Path(root)
     sealed = root/'manifest.json'
     if sealed.exists():
@@ -118,7 +118,7 @@ def verify(root, reference, *, require_complete=True):
         for metric in p.METRICS:
             if product_identity(products[source], metric) != product_identity(reference.manifest['products'][source], metric):
                 raise ValueError('Reference product/period differs')
-    records = json.loads((root/'records.json').read_text('utf-8'))
+    records = json.loads((root/'records.json').read_text('utf-8')) if records is None else records
     expected = {(t['id'], s, m) for t in recipe['tiles'] for s in recipe['sources'] for m in recipe['metrics']}
     keys = [(r['tile'], r['source'], r['metric']) for r in records]
     if len(set(keys)) != len(keys) or not set(keys) <= expected or (require_complete and set(keys) != expected):
@@ -189,6 +189,76 @@ def verify(root, reference, *, require_complete=True):
 
 def product_identity(product, metric):
     return product['metadata_id'], product['requests_by_metric'][metric]['coverage_id'], product['reference_period']
+
+
+def recover_checkpoint(root, reference):
+    """Explicit recovery: preserve damage, then replay provable successes only.
+
+    Missing HTTP metadata is never invented. Unreadable journals remain charged
+    at the full response allowance and cannot supply an accepted raster.
+    """
+    root = Path(root).resolve()
+    with ResourceLock(root, 'tiled canary recovery'):
+        if (root/'manifest.json').exists():
+            raise FileExistsError('Never repair a sealed release in place')
+        recipe = json.loads((root/'plan.json').read_text('utf-8'))
+        if recipe != plan(recipe['bounds']) or json.loads((root/'reference.json').read_text('utf-8')) != reference.manifest:
+            raise ValueError('Pinned recovery recipe/reference changed')
+        products = json.loads((root/'products.json').read_text('utf-8'))
+        verify(root, reference, require_complete=False, records=[])
+        expected = {}
+        for tile in recipe['tiles']:
+            for source, product in products.items():
+                for metric in p.METRICS:
+                    info = description(root/product['requests_by_metric'][metric]['description_file'])
+                    bounds = request_bounds(tile, info)
+                    if bounds is not None:
+                        params = p.coverage_params(product, metric, bounds, max_cells=1002)
+                        url = requests.Request('GET', product['endpoint'], params=params).prepare().url
+                        expected[hashlib.sha256(url.encode()).hexdigest()] = (url, tile, source, metric, bounds, info)
+        damaged, accepted = [], {}
+        for journal in sorted((root/'attempts').glob('*/*.json')):
+            try:
+                http = json.loads(journal.read_text('utf-8'))
+                if not isinstance(http, dict) or 'state' not in http or 'request_url' not in http:
+                    raise ValueError('Invalid journal structure')
+            except (ValueError, UnicodeError):
+                if journal.parent.name not in expected:
+                    raise ValueError('Cannot reconstruct identity of damaged non-coverage journal')
+                original = journal.with_suffix('.json.damaged')
+                if original.exists() and p.file_hash(original) != p.file_hash(journal):
+                    raise ValueError('Conflicting damaged-journal evidence')
+                if not original.exists():
+                    shutil.copyfile(journal, original)
+                url = expected[journal.parent.name][0]
+                http = {'state': 'unavailable', 'request_url': url,
+                        'identity_basis': 'pinned_recipe_and_request_directory_hash_not_recovered_HTTP_metadata',
+                        'damaged_journal': original.relative_to(root).as_posix(),
+                        'damaged_sha256': p.file_hash(original)}
+                atomic_json(journal, http)
+                damaged.append(http['damaged_journal'])
+            if journal.parent.name not in expected or http['state'] != 'finished' or not http.get('complete') or http.get('rejected') or http.get('status') != 200:
+                continue
+            url, tile, source, metric, bounds, info = expected[journal.parent.name]
+            body = journal.with_suffix('.bin')
+            if http['request_url'] != url or p.file_hash(body) != http['sha256'] or body.stat().st_size != http['bytes']:
+                raise ValueError('Completed response checksum/request differs; manual review required')
+            qa = p.inspect_raster(body, bounds, info['grid'], metric, max_cells=1002)
+            key = tile['id'], source, metric
+            accepted.setdefault(key, {'tile': tile['id'], 'source': source, 'metric': metric,
+                'request_bounds': bounds, 'status': 'accepted', 'qa': qa, 'sha256': http['sha256'],
+                'path': body.relative_to(root).as_posix(), 'http_record': journal.relative_to(root).as_posix()})
+        checkpoint = root/'records.json'
+        recovery = root/'recovery'; recovery.mkdir(exist_ok=True)
+        previous = recovery/('records-'+p.file_hash(checkpoint)+'.original')
+        if not previous.exists():
+            shutil.copyfile(checkpoint, previous)
+        report = verify(root, reference, require_complete=False, records=list(accepted.values()))
+        atomic_json(checkpoint, list(accepted.values()))
+        report.update(damaged_journals_retained=damaged, original_checkpoint=previous.relative_to(root).as_posix(),
+                      recovered_at_utc=datetime.now(timezone.utc).isoformat())
+        atomic_json(recovery/'report.json', report)
+        return report
 
 
 def acquire(root, reference, *, max_new_rasters=225):
