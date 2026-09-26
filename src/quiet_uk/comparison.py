@@ -65,14 +65,14 @@ def compare_places(pilot, places, release_id):
                          'reference_period': product['reference_period'],
                          'reference_period_status': product['reference_period_status'],
                          'observations': observations, 'differences_from_first': differences})
-    return {'schema_version': 2 if pilot.manifest['schema_version'] == 2 else 1, 'release_id': release_id, 'places': locations, 'rows': rows,
+    return {'schema_version': 2 if pilot.manifest['schema_version'] >= 2 else 1, 'release_id': release_id, 'places': locations, 'rows': rows,
             'spatial_resolution_m': pilot.manifest['spatial_resolution_m'],
             'receiver_height_m': pilot.manifest['receiver_height_m'],
             'missing_value_policy': pilot.manifest['missing_value_policy'],
             'uncertainty': pilot.manifest['uncertainty'], 'unavailable': pilot.manifest['unavailable'],
             'products': pilot.manifest['products'],
             **({'evidence_contract': pilot.manifest['evidence_contract'], 'parent_release_id': pilot.manifest['parent_release_id']}
-               if pilot.manifest['schema_version'] == 2 else
+               if pilot.manifest['schema_version'] >= 2 else
                {'reporting_cutoff_db': pilot.manifest['reporting_cutoff_db'], 'aircraft_cutoff_note': pilot.manifest['aircraft_cutoff_note']}),
             'licence': pilot.manifest['licence'], 'licence_url': pilot.manifest['licence_url'],
             'attribution': pilot.manifest['attribution'],

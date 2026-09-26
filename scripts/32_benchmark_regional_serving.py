@@ -2,6 +2,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import ctypes
+import hashlib
 from datetime import datetime, timezone
 import json
 import math
@@ -21,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from rasterio.warp import transform
 from quiet_uk.source_pilot import SourcePilot
+from quiet_uk.evidence_semantics import interpret
 from quiet_uk.explorer_server import ExplorerServer
 
 
@@ -94,12 +96,13 @@ def main():
     worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()
     base = f'http://127.0.0.1:{server.server_port}'
     rng = random.Random(20260925)
-    sites = list(source.manifest['sites'])
+    cores = [r for r in source.records.values() if r['source'] == 'road' and r['metric'] == 'Lden']
     points = []
     for index in range(args.requests+2):
-        site = sites[index % len(sites)]
-        record = next(r for r in source.records.values() if r['site'] == site)
-        west, south, east, north = record['qa']['bounds']
+        # Cycle every core, not just the first tile of each named area.
+        record = cores[index % len(cores)]
+        site = record['site']
+        west, south, east, north = record.get('core_bounds', record['qa']['bounds'])
         x, y = rng.uniform(west+10, east-10), rng.uniform(south+10, north-10)
         lon, lat = transform('EPSG:27700', 'EPSG:4326', [x], [y])
         points.append({'site': site, 'longitude': lon[0], 'latitude': lat[0], 'label': f'Sample {index}'})
@@ -121,12 +124,51 @@ def main():
             if size != int(response.headers['Content-Length']):
                 raise RuntimeError('Truncated archive')
         return {'download_bytes': size}
+    def check_boundaries():
+        # Sample just inside every corner and each edge midpoint of every core.
+        # This exercises all shared edges, four-way junctions and outer limits.
+        count = 0
+        for core in cores:
+            w,s,e,n = core.get('core_bounds',core['qa']['bounds'])
+            for x,y in [(w+.25,n-.25),(e-.25,n-.25),(w+.25,s+.25),(e-.25,s+.25),
+                        (w+.25,(s+n)/2),(e-.25,(s+n)/2),((w+e)/2,s+.25),((w+e)/2,n-.25)]:
+                lon,lat = transform('EPSG:27700','EPSG:4326',[x],[y])
+                data = server.pilot.lookup(core['site'],lon[0],lat[0])
+                if len(data['observations']) != 9:
+                    raise RuntimeError('Duplicate or missing boundary observations')
+                for obs in data['observations']:
+                    expected = next(r for r in source.records.values() if r['site']==core['site'] and r.get('core_bounds',r['qa']['bounds'])==core.get('core_bounds',core['qa']['bounds']) and r['source']==obs['source'] and r['metric']==obs['metric'])
+                    if obs['record_id'] != expected['id']:
+                        raise RuntimeError('Wrong boundary owner')
+                    with server.pilot.open_raster(expected['path']) as ds:
+                        row,col = ds.index(x,y)
+                        import rasterio
+                        window = rasterio.windows.Window(col,row,1,1)
+                        raw = float(ds.read(1,window=window)[0,0])
+                        masked = not bool(ds.read_masks(1,window=window)[0,0])
+                    if obs['raw_value'] != raw or obs['status'] != interpret(raw,inside=True,masked=masked)['status']:
+                        raise RuntimeError('Boundary evidence differs from source')
+                    count += 1
+        return count
+    def display_request(record):
+        begin = time.perf_counter()
+        with urlopen(base+f'/pilot-images/{report["release_id"]}/{record["id"]}.png',timeout=60) as response:
+            data = response.read()
+        if hashlib.sha256(data).hexdigest() != source.manifest['files'][record['display']['path']]:
+            raise RuntimeError('Display response changed')
+        return time.perf_counter()-begin
     try:
+        report['sampled_cores'] = len(cores)
         report['first_point_ms'] = round(query(0)*1000, 2)
         report['first_comparison_ms'] = round(query(0, True)*1000, 2)
         for comparison, name in ((False, 'point'), (True, 'three_places')):
             with ThreadPoolExecutor(max_workers=args.workers) as pool:
                 report[name] = summary(list(pool.map(lambda i: query(i, comparison), range(args.requests))))
+        report['reader_cache_entries'] = len(server.pilot._readers._entries)
+        if source.manifest['schema_version'] >= 2:
+            report['boundary_observations_checked'] = check_boundaries()
+        with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            report['display_http'] = summary(list(pool.map(display_request, source.records.values())))
         report['first_export'] = measured_memory(download)
         report['cached_export'] = measured_memory(download)
         report['private_disk_bytes'] = sum(p.stat().st_size for p in server.pilot.root.parent.rglob('*') if p.is_file())

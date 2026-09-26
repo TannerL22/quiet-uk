@@ -8,9 +8,11 @@
   let site = 'heathrow', source = 'aircraft', metric = 'Lden';
   let point, comparison, capabilities;
   let savedMarkers = [];
+  let noiseLayers = [];
+  let renderedLayer;
   const empty = {type: 'FeatureCollection', features: []};
   const message = text => { $('message').textContent = text; $('message').hidden = !text; };
-  const record = () => manifest.records.find(r => r.site === site && r.source === source && r.metric === metric);
+  const records = () => manifest.records.filter(r => r.site === site && r.source === source && r.metric === metric);
   const feature = geometry => ({type: 'Feature', properties: {}, geometry});
   const areaSize = () => (manifest.sites[site].size_m || 2000)/1000;
   // Pasting another comparison link into this same tab can change only the
@@ -113,13 +115,21 @@
     }
   }
   function updateLayer() {
-    const r = record(), p = manifest.products[source];
-    if (map.getLayer('noise')) map.removeLayer('noise');
-    if (map.getSource('noise')) map.removeSource('noise');
-    map.addSource('noise', {type: 'image', url: `/pilot-images/${manifest.release_id}/${r.id}.png`, coordinates: r.display.corners});
+    const selected = records(), p = manifest.products[source];
+    const layerKey = `${site}/${source}/${metric}`;
     // Draw underneath geographic labels, but above the basemap's ground layers.
     const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id || 'pilot-outline';
-    map.addLayer({id: 'noise', type: 'raster', source: 'noise', layout: {visibility: $('overlay').checked ? 'visible' : 'none'}, paint: {'raster-opacity': .85, 'raster-resampling': 'nearest', 'raster-fade-duration': 0}}, before);
+    if (renderedLayer !== layerKey) {
+      noiseLayers.forEach(id => { map.removeLayer(id); map.removeSource(id); });
+      noiseLayers = [];
+      for (const r of selected) {
+      const id = 'noise-'+r.id;
+      map.addSource(id, {type:'image', url:`/pilot-images/${manifest.release_id}/${r.id}.png`, coordinates:r.display.corners});
+      map.addLayer({id, type:'raster', source:id, layout:{visibility:$('overlay').checked?'visible':'none'}, paint:{'raster-opacity':.85, 'raster-resampling':'nearest', 'raster-fade-duration':0}}, before);
+        noiseLayers.push(id);
+      }
+      renderedLayer = layerKey;
+    }
     $('legend-title').textContent = `${names[source]} · ${labels[metric]} · dB(A)`;
     $('source-scope').textContent = `${names[source]} only · other sources are excluded. This is not overall sound exposure.`;
     $('unknown-legend').replaceChildren();
@@ -132,13 +142,13 @@
     $('provider').href = 'https://environment.data.gov.uk/dataset/'+p.metadata_id;
     $('map-title').textContent = `${names[source]} · ${labels[metric]}`;
     $('area-size').textContent = `${areaSize()} × ${areaSize()} km`;
-    map.getSource('pilot-area').setData(feature(r.footprint));
-    map.getSource('all-areas').setData({type:'FeatureCollection', features:manifest.records.filter(item => item.source === source && item.metric === metric).map(item => ({...feature(item.footprint),properties:{name:manifest.sites[item.site].name}}))});
+    map.getSource('pilot-area').setData(feature(manifest.sites[site].footprint || selected[0].footprint));
+    map.getSource('all-areas').setData({type:'FeatureCollection', features:Object.entries(manifest.sites).map(([id, area]) => ({...feature(area.footprint || manifest.records.find(r=>r.site===id).footprint),properties:{name:area.name}}))});
     renderPoint();
     saveView();
   }
   function recenter() {
-    const corners = record().display.corners;
+    const corners = records().flatMap(r => r.display.corners);
     const bounds = new maplibregl.LngLatBounds();
     corners.forEach(c => bounds.extend(c));
     map.fitBounds(bounds, {padding: {top: 110, bottom: 160, left: 30, right: 30}, duration: 0, maxZoom: 15});
@@ -216,7 +226,8 @@
       const response = await fetch('/api/pilot', {signal: AbortSignal.timeout(15000)});
       if (!response.ok) throw new Error();
       manifest = await response.json();
-      if (!manifest.sites[site]) site = Object.keys(manifest.sites)[0];
+      if (manifest.schema_version === 3) source = 'road';
+      if (manifest.schema_version === 3 || !manifest.sites[site]) site = Object.keys(manifest.sites)[0];
       if (manifest.sites[hash.get('site')]) site = hash.get('site');
       if (Object.hasOwn(names, hash.get('source'))) source = hash.get('source');
       if (metrics.includes(hash.get('metric'))) metric = hash.get('metric');
@@ -246,7 +257,7 @@
       }
       map = new maplibregl.Map({container: 'map', style, center: manifest.sites[site].center, zoom: 14, maxZoom: 20});
       map.addControl(new maplibregl.NavigationControl({showCompass: false}), 'top-right');
-      map.on('error', e => {if (e.sourceId === 'noise') message('The selected noise overlay could not be loaded. Point inspection still provides verified values.');});
+      map.on('error', e => {if (e.sourceId?.startsWith('noise-')) message('A noise overlay could not be loaded. Point inspection still provides verified values.');});
       map.on('load', async () => {
         map.addSource('all-areas', {type:'geojson',data:empty});
         map.addLayer({id:'coverage-fill',type:'fill',source:'all-areas',paint:{'fill-color':'#258b92','fill-opacity':.06}});
@@ -272,7 +283,7 @@
         $('sources').addEventListener('change', e => {source = e.target.value; updateLayer();});
         $('show-aircraft').addEventListener('click', () => { source = 'aircraft'; document.querySelector('input[name="source"][value="aircraft"]').checked = true; updateLayer(); });
         $('metrics').addEventListener('change', e => {metric = e.target.value; updateLayer();});
-        $('overlay').addEventListener('change', () => { map.setLayoutProperty('noise', 'visibility', $('overlay').checked ? 'visible' : 'none'); saveView(); });
+        $('overlay').addEventListener('change', () => { noiseLayers.forEach(id=>map.setLayoutProperty(id, 'visibility', $('overlay').checked ? 'visible' : 'none')); saveView(); });
         $('recenter').addEventListener('click', recenter);
         $('show-coverage').disabled = false; $('inspect-centre').disabled = false; $('share-view').disabled = false;
         $('show-coverage').addEventListener('click', () => {
