@@ -138,6 +138,16 @@ contract version 2 and does not overwrite earlier display generations.
 The 18 September product review and older phase reports are historical evidence;
 the active roadmap is the current delivery plan.
 
+## Tiled acquisition canary
+
+The separate 50 × 50 km Oxford–Reading–Chilterns workflow uses 25 overlapping
+native-grid requests per source/indicator, fixed acquisition budgets, resumable
+checkpoints and exact seam/reference comparisons. It retains failed attempts and
+supports explicit recovery of damaged checkpoints without trusting lost evidence.
+Run `python scripts/33_tiled_canary.py` to inspect the plan without networking.
+See [canary status, verification and commands](notes/TILED_CANARY.md). This dataset
+is an engineering checkpoint; it is not automatically installed in the map.
+
 ## Existing scientific pipeline
 
 A reproducible pipeline for building a fine-resolution map of **modelled anthropogenic environmental noise** in England using Defra Round 4 strategic noise mapping.

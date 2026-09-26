@@ -1,6 +1,6 @@
 # Quiet UK active roadmap
 
-Updated 25 September 2026. This supersedes the delivery ordering in older reviews;
+Updated 26 September 2026. This supersedes the delivery ordering in older reviews;
 those documents remain historical evidence.
 
 **Review-adjusted plan:** see [Review response and delivery plan](REVIEW_RESPONSE_AND_DELIVERY_PLAN.md).
@@ -101,8 +101,9 @@ regional release without requiring a national release. The local full suite pass
 Desktop/narrow-screen browser checks establish operation, not comprehension.
 No participant sessions have been completed, so the user-tested phase remains open.
 Use findings to refine the existing explorer. The regional serving prerequisite
-below is implemented; next define acquisition/storage budgets and measure the
-50 × 50 km canary before committing to wider coverage.
+below is implemented. The 50 × 50 km acquisition checkpoint is now complete;
+next integrate tiled lookup/display and measure serving costs before committing
+to wider coverage.
 
 **Regional serving isolation implemented:** the server copies and hashes exact
 release bytes into a private temporary snapshot, reuses up to 48 exclusively
@@ -115,6 +116,18 @@ comparisons. First export used about 4.6 MB of Python allocations for 298 MB of
 source evidence; total process peak RSS was about 301 MB. These are regional,
 warm-filesystem measurements, not national-scale or hard whole-process memory
 bounds. See [scope, reproduction and remaining work](REGIONAL_SERVING.md).
+
+**Tiled acquisition checkpoint completed:** release
+`canary-90d7e5ac25859921a92b` covers 2,500 km² with 25 core tiles and 225
+source/indicator rasters. All 360 shared-strip comparisons match exactly, as do
+27 million source-indicator cells in the existing regional release. The run
+recovered damaged checkpoints without reusing responses whose evidence was lost,
+and completed within its original cumulative budgets. See
+[acquisition results and replay](TILED_CANARY.md). This data is not installed in
+the map. The next implementation is tiled point lookup and display, with explicit
+boundary ownership and seam tests, followed by serving/memory/export measurements
+on the larger working set. The full tiled-canary phase remains open until those
+checks pass.
 
 **Next evidence task:** obtain citable provider zero/nodata and calculation-domain
 definitions, and an airport threshold/period/product crosswalk. A
