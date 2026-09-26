@@ -4,10 +4,6 @@ import json
 from pathlib import Path
 import sys
 
-import numpy as np
-from PIL import Image
-from rasterio.warp import transform
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
 from quiet_uk.source_pilot import SourcePilot

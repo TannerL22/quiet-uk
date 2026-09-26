@@ -84,7 +84,7 @@ def main():
               'notes': ['Offline, loopback HTTP; deterministic varied points; no remote geocoder.',
                         'OS file cache is not flushed; first-request timings are not cold-disk results.',
                         'Python allocation peaks exclude native allocations; RSS is process lifetime high-water.',
-                        'Regional release only; results do not establish national scaling.']}
+                        'Installed bounded release only; results do not establish national scaling.']}
     start = time.perf_counter()
     source = SourcePilot(args.pilot)
     report['source_verification_seconds'] = round(time.perf_counter()-start, 3)
@@ -157,6 +157,20 @@ def main():
         if hashlib.sha256(data).hexdigest() != source.manifest['files'][record['display']['path']]:
             raise RuntimeError('Display response changed')
         return time.perf_counter()-begin
+    def check_outside():
+        count = 0
+        for site in source.manifest['sites']:
+            areas = [r.get('core_bounds',r['qa']['bounds']) for r in cores if r['site']==site]
+            w,s,e,n = min(b[0] for b in areas),min(b[1] for b in areas),max(b[2] for b in areas),max(b[3] for b in areas)
+            for x,y in [(w-20,(s+n)/2),(e+20,(s+n)/2),((w+e)/2,s-20),((w+e)/2,n+20)]:
+                lon,lat=transform('EPSG:27700','EPSG:4326',[x],[y])
+                data=server.pilot.lookup(site,lon[0],lat[0])
+                observations=data['observations']
+                if (len(observations)!=9 or len({(o['source'],o['metric']) for o in observations})!=9
+                        or any(o['status']!='outside_extract' or o['raw_value'] is not None for o in observations)):
+                    raise RuntimeError('Outside coverage produced missing, duplicate or sampled indicators')
+                count+=9
+        return count
     try:
         report['sampled_cores'] = len(cores)
         report['first_point_ms'] = round(query(0)*1000, 2)
@@ -167,6 +181,7 @@ def main():
         report['reader_cache_entries'] = len(server.pilot._readers._entries)
         if source.manifest['schema_version'] >= 2:
             report['boundary_observations_checked'] = check_boundaries()
+            report['outside_observations_checked'] = check_outside()
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
             report['display_http'] = summary(list(pool.map(display_request, source.records.values())))
         report['first_export'] = measured_memory(download)

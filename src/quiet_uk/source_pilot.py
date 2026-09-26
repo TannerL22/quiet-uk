@@ -611,7 +611,9 @@ class SourcePilot:
         if self.manifest['schema_version'] == 3:
             owned = [r for r in records if owns_point(r['core_bounds'], x[0], y[0]) and projectable]
             # Outside coverage still returns nine unavailable observations.
-            records = owned or records[:9]
+            candidates = owned or records
+            records = [next(r for r in candidates if r['source'] == source and r['metric'] == metric)
+                       for source in PROVIDERS for metric in METRICS]
         for record in records:
             product = self.manifest['products'][record['source']]
             with self.open_raster(record['path']) as ds:
