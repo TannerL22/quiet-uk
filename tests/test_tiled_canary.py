@@ -186,8 +186,20 @@ def test_acquisition_resume_seams_reference_and_sealed_replay(pilot, tmp_path, m
         c.acquire(root, pilot)
     assert len(json.loads((root/'records.json').read_text())) == 4
     assert not (root/'manifest.json').exists()
+    # Simulate the observed power/interruption damage: a zero-filled checkpoint
+    # and one lost HTTP journal. The unprovable response must be reacquired.
+    checkpoint = json.loads((root/'records.json').read_text())
+    damaged = root/checkpoint[0]['http_record']
+    damaged.write_bytes(b'\0'*200)
+    (root/'records.json').write_bytes(b'\0'*512)
+    recovered = c.recover_checkpoint(root, pilot)
+    assert recovered['accepted_rasters'] == 3
+    assert len(recovered['damaged_journals_retained']) == 1
+    assert (root/recovered['original_checkpoint']).read_bytes() == b'\0'*512
+    assert damaged.with_suffix('.json.damaged').read_bytes() == b'\0'*200
+    assert BudgetCapture(root, recipe['limits']).usage()['charged_bytes'] >= 1024*1024
     sealed = c.acquire(root, pilot)
-    assert len(calls) == 19  # 18 accepted, one retained failure; no redownload of four successes
+    assert len(calls) == 20  # 18 accepted + outage + lost journal; three provable successes reused
     assert sealed['verification']['exact_seam_pairs'] == 9
     assert sealed['verification']['reference_source_indicator_cells'] == 1800
     monkeypatch.setattr(requests, 'get', lambda *a, **k: pytest.fail('Offline replay contacted provider'))
@@ -197,3 +209,15 @@ def test_acquisition_resume_seams_reference_and_sealed_replay(pilot, tmp_path, m
     (root/'records.json').write_bytes(b'[]')
     with pytest.raises(ValueError, match='evidence changed'):
         c.verify(root, pilot)
+
+
+def test_failed_checkpoint_flush_preserves_previous_commit(tmp_path, monkeypatch):
+    import os
+    target = tmp_path/'checkpoint.json'
+    atomic_json(target, {'accepted': 1})
+    def fail(*args):
+        raise OSError('Flush failed')
+    monkeypatch.setattr(os, 'fsync', fail)
+    with pytest.raises(OSError, match='Flush failed'):
+        atomic_json(target, {'accepted': 2})
+    assert json.loads(target.read_text()) == {'accepted': 1}

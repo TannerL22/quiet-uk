@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import time
@@ -17,8 +18,17 @@ class AcquisitionStopped(RuntimeError):
 
 def atomic_json(path, value):
     pending = path.with_suffix(path.suffix+'.pending')
-    pending.write_bytes(json_bytes(value))
+    with pending.open('wb') as stream:
+        stream.write(json_bytes(value))
+        stream.flush()
+        os.fsync(stream.fileno())
     pending.replace(path)
+    if os.name != 'nt':
+        descriptor = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
 
 
 class BudgetCapture:
@@ -84,6 +94,8 @@ class BudgetCapture:
                     if received+len(chunk) > self.limits['response_bytes']:
                         raise AcquisitionStopped('Response size budget exceeded')
                     outgoing.write(chunk); digest.update(chunk); received += len(chunk)
+                outgoing.flush()
+                os.fsync(outgoing.fileno())
             record['complete'] = True
         except (requests.RequestException, OSError, AcquisitionStopped) as exc:
             record['complete'] = False

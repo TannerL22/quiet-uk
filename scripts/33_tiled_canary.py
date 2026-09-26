@@ -7,7 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from quiet_uk.source_pilot import SourcePilot
-from quiet_uk.tiled_canary import plan, acquire, verify
+from quiet_uk.tiled_canary import plan, acquire, verify, recover_checkpoint
 
 
 def main():
@@ -17,13 +17,16 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--acquire', action='store_true')
     mode.add_argument('--verify', action='store_true')
+    mode.add_argument('--recover-checkpoint', action='store_true', help='Preserve damaged journals/checkpoint and rebuild only hash-verified accepted records')
     parser.add_argument('--max-new-rasters', type=int, default=225)
     args = parser.parse_args()
     if not 1 <= args.max_new_rasters <= 225:
         parser.error('Choose 1–225 new rasters per invocation')
-    if not args.acquire and not args.verify:
+    if not args.acquire and not args.verify and not args.recover_checkpoint:
         print(json.dumps(plan(), indent=2)); return
     reference = SourcePilot(args.reference)
+    if args.recover_checkpoint:
+        print(json.dumps(recover_checkpoint(args.output, reference), indent=2)); return
     result = (acquire(args.output.resolve(), reference, max_new_rasters=args.max_new_rasters)
               if args.acquire else verify(args.output.resolve(), reference))
     print(json.dumps(result, indent=2))
