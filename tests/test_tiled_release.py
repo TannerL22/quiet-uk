@@ -137,8 +137,18 @@ def test_tiled_lookup_boundaries_replay_and_http(tiled,monkeypatch):
     assert not server.pilot.root.parent.exists()
 
 
-def test_resealed_tile_ownership_tampering_is_rejected(tiled):
+def test_resealed_tile_ownership_tampering_is_rejected(tiled,monkeypatch):
     release,_,_=tiled
+    from quiet_uk import display_seams
+    pending=release.root.with_name(release.root.name+'-pending')
+    with monkeypatch.context() as patch:
+        def fail(*args): raise ValueError('Display seam rejected')
+        patch.setattr(display_seams,'check',fail)
+        with pytest.raises(ValueError,match='Display seam rejected'):
+            t.publish(release.root/'canary',release.root/'regional',pending)
+    assert not (pending/'manifest.json').exists()
+    t.publish(release.root/'canary',release.root/'regional',pending,resume=True)
+    assert p.SourcePilot(pending).verify(reproduce=True)['display_seams']['display_seam_pairs']==36
     m=release.manifest
     m['records'][0]['core_bounds'][2]+=10
     import hashlib

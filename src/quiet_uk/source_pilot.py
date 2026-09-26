@@ -379,26 +379,37 @@ def display_image(path, *, evidence_version=None, core_bounds=None):
         data = ds.read(1, window=window).astype('float64')
         data[ds.read_masks(1, window=window) == 0] = -1 if evidence_version else 0
         warped = np.full((height, width), -9999., dtype='float64')
-        if core_bounds is None:
-            reproject(data, warped, src_transform=source_transform, src_crs=ds.crs,
-                      dst_transform=t, dst_crs='EPSG:3857', dst_nodata=-9999,
-                      resampling=Resampling.nearest)
-        else:
-            # Sample the same global display pixel centres in every tile.
-            # Independent GDAL warps can disagree by a pixel at an edge even
-            # on an aligned destination grid. Exact inverse projection plus
-            # the native half-open ownership rule avoids both gaps and overlap.
-            # Short strips bound Python coordinate-list allocations.
-            for start in range(0, height, 32):
-                stop = min(start+32, height)
-                xx, yy = np.meshgrid(t.c+(np.arange(width)+.5)*10,
-                                     t.f-(np.arange(start,stop)+.5)*10)
-                xs, ys = transform('EPSG:3857', ds.crs, xx.ravel(), yy.ravel())
-                cols = np.floor((np.asarray(xs)-source_transform.c)/10).astype('int64')
-                rows = np.floor((source_transform.f-np.asarray(ys))/10).astype('int64')
-                inside = (cols>=0)&(cols<data.shape[1])&(rows>=0)&(rows<data.shape[0])
-                strip = warped[start:stop].reshape(-1)
-                strip[inside] = data[rows[inside],cols[inside]]
+        reproject(data, warped, src_transform=source_transform, src_crs=ds.crs,
+                  dst_transform=t, dst_crs='EPSG:3857', dst_nodata=-9999,
+                  resampling=Resampling.nearest)
+        if core_bounds is not None:
+            # Independent GDAL warps can disagree by a pixel at a core edge.
+            # Correct a four-pixel belt around every validity transition using
+            # exact inverse projection. Interior pixels retain GDAL nearest-cell
+            # sampling. Full-size seam verification independently checks this
+            # belt is sufficient; a failed release must not be installed.
+            valid = warped != -9999
+            edge = np.zeros(valid.shape, dtype=bool)
+            edge[:,1:] |= valid[:,1:] != valid[:,:-1]
+            edge[:,:-1] |= valid[:,1:] != valid[:,:-1]
+            edge[1:] |= valid[1:] != valid[:-1]
+            edge[:-1] |= valid[1:] != valid[:-1]
+            edge[:4] = True; edge[-4:] = True
+            edge[:,:4] = True; edge[:,-4:] = True
+            for _ in range(3):
+                expanded = edge.copy()
+                expanded[1:] |= edge[:-1]; expanded[:-1] |= edge[1:]
+                expanded[:,1:] |= edge[:,:-1]; expanded[:,:-1] |= edge[:,1:]
+                edge = expanded
+            from pyproj import Transformer
+            projection = Transformer.from_crs('EPSG:3857', ds.crs, always_xy=True)
+            yy,xx = np.nonzero(edge)
+            xs,ys = projection.transform(t.c+(xx+.5)*10, t.f-(yy+.5)*10)
+            cols = np.floor((xs-source_transform.c)/10).astype('int64')
+            rows = np.floor((source_transform.f-ys)/10).astype('int64')
+            inside = (cols>=0)&(cols<data.shape[1])&(rows>=0)&(rows<data.shape[0])
+            warped[yy,xx] = -9999
+            warped[yy[inside],xx[inside]] = data[rows[inside],cols[inside]]
     rgba = np.zeros((*warped.shape, 4), dtype='uint8')
     present = warped > 0
     colours = np.array([[int(c[i:i+2], 16) for i in (1, 3, 5)] for c in COLOURS], dtype='uint8')

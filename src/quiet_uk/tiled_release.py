@@ -112,11 +112,14 @@ def verify_release(release, *, reproduce=False):
             png, corners = p.display_image(release.verified_path(record['path']), evidence_version=CONTRACT['version'], core_bounds=record['core_bounds'])
             if png != release.verified_path(record['display']['path']).read_bytes() or corners != record['display']['corners']:
                 raise CatalogueIntegrityError('Tiled display reproduction mismatch')
+        from .display_seams import check
+        display_checks = check(release)
     return {'release_id': release.manifest['release_id'], 'verified_records': len(release.records),
-            'verified_files': len(release.manifest['files']), 'display_reproduced': reproduce, 'extraction': report}
+            'verified_files': len(release.manifest['files']), 'display_reproduced': reproduce, 'extraction': report,
+            **({'display_seams': display_checks} if reproduce else {})}
 
 
-def publish(canary_root, regional_root, output):
+def publish(canary_root, regional_root, output, *, resume=False):
     canary_root, regional_root, output = map(lambda v: Path(v).resolve(), (canary_root, regional_root, output))
     if any(output.is_relative_to(parent) or parent.is_relative_to(output) for parent in (canary_root, regional_root)):
         raise ValueError('Use a separate output directory')
@@ -127,21 +130,22 @@ def publish(canary_root, regional_root, output):
     c.verify(canary_root, reference)
     canary = json.loads((canary_root/'manifest.json').read_text('utf-8'))
     with ResourceLock(output, 'tiled map construction'):
-        if output.exists():
+        if (output/'manifest.json').exists() or (output.exists() and not resume):
             raise FileExistsError('Use a new tiled map destination')
-        output.mkdir(parents=True)
+        output.mkdir(parents=True, exist_ok=True)
         for prefix, root, manifest in [('canary',canary_root,canary), ('regional',regional_root,reference.manifest)]:
             for name in [*manifest['files'], 'manifest.json']:
                 target = output/prefix/name
                 target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(root/name, target)
                 expected = manifest['files'].get(name, p.file_hash(root/name))
+                if not target.exists():
+                    shutil.copyfile(root/name, target)
                 if p.file_hash(target) != expected:
                     raise CatalogueIntegrityError('Source changed while copying')
         recipe = json.loads((output/'canary/plan.json').read_text('utf-8'))
         records = derived_records(recipe, json.loads((output/'canary/records.json').read_text('utf-8')), reference.manifest)
         products = prefixed(json.loads((output/'canary/products.json').read_text('utf-8')), 'canary/')
-        (output/'display').mkdir()
+        (output/'display').mkdir(exist_ok=True)
         files = {path.relative_to(output).as_posix(): p.file_hash(path) for path in output.rglob('*') if path.is_file()}
         for index, record in enumerate(records):
             record['evidence'] = record_evidence(record, products[record['source']], files)
@@ -159,11 +163,13 @@ def publish(canary_root, regional_root, output):
                         status='exploratory_tiled_source_release', parent_release_id=canary['release_id'],
                         evidence_contract=copy.deepcopy(CONTRACT), missing_value_policy=CONTRACT['missing_value_policy'],
                         products=products, sites=sites_for(recipe, reference.manifest), records=records,
-                        display_recipe='core-only nearest, globally aligned EPSG:3857 10 m display pixels; native analytical cells unchanged',
+                        display_recipe='globally aligned EPSG:3857 10 m display pixels, GDAL nearest with exact inverse projection at core edges; native analytical cells unchanged',
                         files={path.relative_to(output).as_posix():p.file_hash(path) for path in sorted(output.rglob('*')) if path.is_file()})
         manifest['release_id'] = 'pilot-'+hashlib.sha256(p.json_bytes(manifest)).hexdigest()[:20]
         # Validate copied lineage before making a discoverable manifest.
         from types import SimpleNamespace
         validate_lineage(SimpleNamespace(manifest=manifest, verified_path=lambda name: output/name))
+        from .display_seams import check
+        check(SimpleNamespace(manifest=manifest, records={r['id']:r for r in records}, verified_path=lambda name: output/name))
         atomic_json(output/'manifest.json', manifest)
     return manifest
