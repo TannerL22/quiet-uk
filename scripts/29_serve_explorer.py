@@ -24,6 +24,9 @@ def main():
     interpreted = ROOT/'artifacts/source_regions_v2'
     if (interpreted/'manifest.json').exists():
         regional = interpreted
+    tiled = ROOT/'artifacts/tiled_map_v2'
+    if (tiled/'manifest.json').exists():
+        regional = tiled
     parser.add_argument('--pilot', type=Path, default=regional if (regional/'manifest.json').exists() else ROOT/'artifacts/source_pilot_v1')
     args = parser.parse_args()
     if args.regional_only and args.build_only:

@@ -139,7 +139,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                     if url.path.startswith('/downloads/'):
                         return self._send(json_bytes(result), 'application/json; charset=utf-8', filename=pilot.manifest['release_id']+'-location.json')
                     return self._json(result)
-                asset = re.fullmatch(r'/pilot-images/(pilot-[a-f0-9]{20})/([a-z]+-(?:road|rail|aircraft)-(?:Lden|Lday|Lnight))\.png', url.path)
+                asset = re.fullmatch(r'/pilot-images/(pilot-[a-f0-9]{20})/([a-z0-9-]+-(?:road|rail|aircraft)-(?:Lden|Lday|Lnight))\.png', url.path)
                 if asset and asset[1] == pilot.manifest['release_id'] and asset[2] in pilot.records:
                     return self._send(pilot.verified_path(pilot.records[asset[2]]['display']['path']).read_bytes(), 'image/png', cache='public, max-age=3600')
                 return self._json({'error': 'Unknown pilot resource'}, 404)

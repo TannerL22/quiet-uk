@@ -354,24 +354,58 @@ def acquire(root, sites=None):
     return products, selected_sites, records
 
 
-def display_image(path, *, evidence_version=None):
+def display_image(path, *, evidence_version=None, core_bounds=None):
     """A nearest-cell Web Mercator display; analytical files are never warped."""
     with rasterio.open(path) as ds:
-        t, width, height = calculate_default_transform(ds.crs, 'EPSG:3857', ds.width, ds.height, *ds.bounds)
+        if core_bounds is None:
+            t, width, height = calculate_default_transform(ds.crs, 'EPSG:3857', ds.width, ds.height, *ds.bounds)
+            pixel_origin = (0, 0)
+            window = None
+            source_transform = ds.transform
+        else:
+            # All tiles share one Mercator pixel lattice. Crop halos before
+            # nearest-cell warping so a display pixel has exactly one owner.
+            from rasterio.warp import transform_bounds
+            from rasterio.transform import from_origin
+            import math
+            w, s, e, n = transform_bounds(ds.crs, 'EPSG:3857', *core_bounds, densify_pts=21)
+            left, bottom, right, top = math.floor(w/10), math.floor(s/10), math.ceil(e/10), math.ceil(n/10)
+            t, width, height = from_origin(left*10, top*10, 10, 10), right-left, top-bottom
+            pixel_origin = (left, -top)
+            window = rasterio.windows.from_bounds(*core_bounds, transform=ds.transform).round_offsets().round_lengths()
+            source_transform = ds.window_transform(window)
         # -9999 marks outside the rotated source rectangle; -96/zero inside
         # remain visibly unreported. Both differ from genuinely reported values.
-        data = ds.read(1).astype('float64')
-        data[ds.read_masks(1) == 0] = -1 if evidence_version else 0
+        data = ds.read(1, window=window).astype('float64')
+        data[ds.read_masks(1, window=window) == 0] = -1 if evidence_version else 0
         warped = np.full((height, width), -9999., dtype='float64')
-        reproject(data, warped, src_transform=ds.transform, src_crs=ds.crs,
-                  dst_transform=t, dst_crs='EPSG:3857', dst_nodata=-9999,
-                  resampling=Resampling.nearest)
+        if core_bounds is None:
+            reproject(data, warped, src_transform=source_transform, src_crs=ds.crs,
+                      dst_transform=t, dst_crs='EPSG:3857', dst_nodata=-9999,
+                      resampling=Resampling.nearest)
+        else:
+            # Sample the same global display pixel centres in every tile.
+            # Independent GDAL warps can disagree by a pixel at an edge even
+            # on an aligned destination grid. Exact inverse projection plus
+            # the native half-open ownership rule avoids both gaps and overlap.
+            # Short strips bound Python coordinate-list allocations.
+            for start in range(0, height, 32):
+                stop = min(start+32, height)
+                xx, yy = np.meshgrid(t.c+(np.arange(width)+.5)*10,
+                                     t.f-(np.arange(start,stop)+.5)*10)
+                xs, ys = transform('EPSG:3857', ds.crs, xx.ravel(), yy.ravel())
+                cols = np.floor((np.asarray(xs)-source_transform.c)/10).astype('int64')
+                rows = np.floor((source_transform.f-np.asarray(ys))/10).astype('int64')
+                inside = (cols>=0)&(cols<data.shape[1])&(rows>=0)&(rows<data.shape[0])
+                strip = warped[start:stop].reshape(-1)
+                strip[inside] = data[rows[inside],cols[inside]]
     rgba = np.zeros((*warped.shape, 4), dtype='uint8')
     present = warped > 0
     colours = np.array([[int(c[i:i+2], 16) for i in (1, 3, 5)] for c in COLOURS], dtype='uint8')
     rgba[present, :3] = colours[np.searchsorted(BREAKS, warped[present], side='right')]
     rgba[present, 3] = 230
     yy, xx = np.indices(warped.shape)
+    xx += pixel_origin[0]; yy += pixel_origin[1]
     unknown = warped == 0
     rgba[unknown, :3] = [192, 184, 165]
     rgba[unknown, 3] = np.where(((xx+yy) % 8)[unknown] < 2, 210, 130)
@@ -486,19 +520,28 @@ def publish_interpretation(parent_root, output):
     return manifest
 
 
+def owns_point(bounds, x, y):
+    """Raster convention: west/north included, east/south excluded."""
+    w, s, e, n = bounds
+    return w <= x < e and s < y <= n
+
+
 class SourcePilot:
     def __init__(self, root):
         self.root = Path(root).resolve()
         self.manifest = json.loads((self.root/'manifest.json').read_text('utf-8'))
         base = {k: v for k, v in self.manifest.items() if k != 'release_id'}
         expected = 'pilot-'+hashlib.sha256(json_bytes(base)).hexdigest()[:20]
-        if self.manifest.get('schema_version') not in (1, 2) or self.manifest['release_id'] != expected:
+        if self.manifest.get('schema_version') not in (1, 2, 3) or self.manifest['release_id'] != expected:
             raise CatalogueIntegrityError('Pilot manifest checksum/schema mismatch')
-        if self.manifest['schema_version'] == 2 and self.manifest.get('evidence_contract') != CONTRACT:
+        if self.manifest['schema_version'] >= 2 and self.manifest.get('evidence_contract') != CONTRACT:
             raise CatalogueIntegrityError('Unsupported evidence contract')
         self.records = {r['id']: r for r in self.manifest['records']}
         for name in self.manifest['files']:
             self.verified_path(name)
+        if self.manifest['schema_version'] == 3:
+            from .tiled_release import validate_lineage
+            validate_lineage(self)
         if self.manifest['schema_version'] == 2:
             parent = json.loads(self.verified_path(self.manifest['parent_manifest']).read_text('utf-8'))
             base = {k: v for k, v in parent.items() if k != 'release_id'}
@@ -537,7 +580,7 @@ class SourcePilot:
             raise ValueError('Coordinates cannot be projected into the source grid')
         matches = set()
         for record in self.manifest['records']:
-            w, s, e, n = record['qa']['bounds']
+            w, s, e, n = record.get('core_bounds', record['qa']['bounds'])
             if w <= x[0] < e and s < y[0] <= n:
                 matches.add(record['site'])
         return [site for site in self.manifest['sites'] if site in matches]
@@ -553,13 +596,17 @@ class SourcePilot:
         if projectable and not np.isfinite([x[0], y[0]]).all():
             raise ValueError('Coordinates cannot be projected into the source grid')
         observations = []
-        for record in self.manifest['records']:
-            if record['site'] != site:
-                continue
+        records = [r for r in self.manifest['records'] if r['site'] == site]
+        if self.manifest['schema_version'] == 3:
+            owned = [r for r in records if owns_point(r['core_bounds'], x[0], y[0]) and projectable]
+            # Outside coverage still returns nine unavailable observations.
+            records = owned or records[:9]
+        for record in records:
             product = self.manifest['products'][record['source']]
             with self.open_raster(record['path']) as ds:
                 row, col = ds.index(x[0], y[0]) if projectable else (-1, -1)
-                inside = 0 <= row < ds.height and 0 <= col < ds.width
+                inside = (0 <= row < ds.height and 0 <= col < ds.width
+                          and ('core_bounds' not in record or owns_point(record['core_bounds'], x[0], y[0])))
                 raw, value, cell = None, None, None
                 status = 'outside_pilot'
                 evidence = None
@@ -571,7 +618,7 @@ class SourcePilot:
                     pts = [ds.transform*(col+dx, row+dy) for dx, dy in ((0, 0), (1, 0), (1, 1), (0, 1), (0, 0))]
                     lons, lats = transform(ds.crs, 'EPSG:4326', *zip(*pts))
                     cell = {'type': 'Polygon', 'coordinates': [list(map(list, zip(lons, lats)))]}
-                if self.manifest['schema_version'] == 2:
+                if self.manifest['schema_version'] >= 2:
                     masked = inside and not bool(ds.read_masks(1, window=rasterio.windows.Window(col, row, 1, 1))[0, 0])
                     evidence = interpret(raw, inside=inside, masked=masked)
                     status, value = evidence['status'], evidence['value_db']
@@ -585,12 +632,15 @@ class SourcePilot:
                                      **({**record['evidence'], **evidence} if evidence else {})})
         return {'release_id': self.manifest['release_id'], 'site': site, 'longitude': lon, 'latitude': lat,
                 'observations': observations,
-                **({'evidence_contract_version': CONTRACT['version'], 'parent_release_id': self.manifest['parent_release_id']} if self.manifest['schema_version'] == 2 else {}),
+                **({'evidence_contract_version': CONTRACT['version'], 'parent_release_id': self.manifest['parent_release_id']} if self.manifest['schema_version'] >= 2 else {}),
                 'missing_value_policy': self.manifest['missing_value_policy'],
                 'uncertainty': self.manifest['uncertainty'], 'unavailable': self.manifest['unavailable']}
 
     def verify(self, reproduce=False):
         """Offline QA against the saved provider responses, with optional PNG replay."""
+        if self.manifest['schema_version'] == 3:
+            from .tiled_release import verify_release
+            return verify_release(self, reproduce=reproduce)
         if 'acquisition_plan' in self.manifest:
             expected_plan = acquisition_plan(self.manifest['sites'])
             if self.manifest['acquisition_plan'] != expected_plan:
