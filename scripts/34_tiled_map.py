@@ -14,9 +14,10 @@ def main():
     parser.add_argument('--regional', type=Path, default=ROOT/'artifacts/source_regions_v2')
     parser.add_argument('--output', type=Path, default=ROOT/'artifacts/tiled_map_v2')
     parser.add_argument('--verify', action='store_true')
+    parser.add_argument('--resume', action='store_true', help='Recheck copied parents and regenerate displays in an unsealed destination')
     args = parser.parse_args()
     if not args.verify:
-        publish(args.canary, args.regional, args.output)
+        publish(args.canary, args.regional, args.output, resume=args.resume)
     print(json.dumps(SourcePilot(args.output).verify(reproduce=True), indent=2))
 
 if __name__ == '__main__':

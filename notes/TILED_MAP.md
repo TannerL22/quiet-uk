@@ -29,9 +29,12 @@ introduced.
 ## Display construction
 
 Each tile uses the same globally aligned 10 m Web Mercator display lattice.
-Display pixel centres are inverse-projected into the native grid, then assigned
-to the containing native cell and core. Computation uses short strips to bound
-coordinate allocations. This is display-only nearest-cell sampling; Mercator
+Interior pixels use GDAL nearest-cell sampling. A belt around core edges is
+inverse-projected with vectorized `pyproj`, then assigned to the containing native
+cell and core. This avoids projecting millions of unaffected interior pixels.
+Full-size checks independently project shared strips with GDAL and require no
+gaps or double opacity before the manifest can be published. This is display-only
+nearest-cell sampling; Mercator
 metres are not a claim of ground-level resolution or model accuracy. Hatching
 uses global pixel coordinates so its phase does not restart at tile edges.
 
@@ -39,7 +42,7 @@ The initial local derivative (`tiled_map_v1`, `pilot-82b07c7cfca57cf3d553`) fail
 the full-size alpha seam check despite passing a small synthetic mosaic check.
 Independent GDAL warps disagreed at one aircraft boundary. It is retained for
 diagnosis and is not selected by the launcher. The corrected derivative is
-`artifacts/tiled_map_v2`, using explicit inverse pixel-centre sampling. Neither
+`artifacts/tiled_map_v2`, using exact inverse pixel-centre sampling at core edges. Neither
 attempt changes the sealed analytical canary.
 
 The browser draws all 25 core images for the selected wider area, with a single
@@ -53,6 +56,9 @@ road/rail views.
 ```text
 # Build a new derivative offline; refuses an existing destination.
 python scripts/34_tiled_map.py --output artifacts/tiled_map_v2
+
+# Resume an interrupted, unsealed build: recheck parents, regenerate displays.
+python scripts/34_tiled_map.py --resume --output artifacts/tiled_map_v2
 
 # Replay parent extraction checks and every display image offline.
 python scripts/34_tiled_map.py --verify --output artifacts/tiled_map_v2
