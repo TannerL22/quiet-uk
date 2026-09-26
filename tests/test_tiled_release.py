@@ -85,6 +85,16 @@ def tiled(pilot, tmp_path, monkeypatch):
     monkeypatch.setattr(c.requests,'get',get)
     canary=tmp_path.with_name(tmp_path.name+'-canary')
     c.acquire(canary,reference)
+    # Recovery can publish records in request-hash order, not tile/source order.
+    import random, hashlib
+    acquired=json.loads((canary/'records.json').read_text('utf-8'))
+    random.Random(7).shuffle(acquired)
+    (canary/'records.json').write_bytes(p.json_bytes(acquired))
+    sealed=json.loads((canary/'manifest.json').read_text('utf-8'))
+    sealed['files']['records.json']=p.file_hash(canary/'records.json')
+    sealed.pop('release_id')
+    sealed['release_id']='canary-'+hashlib.sha256(p.json_bytes(sealed)).hexdigest()[:20]
+    (canary/'manifest.json').write_bytes(p.json_bytes(sealed))
     output=tmp_path.with_name(tmp_path.name+'-map')
     t.publish(canary,regional,output)
     monkeypatch.setattr(c.requests,'get',lambda *a,**k:pytest.fail('Offline operation made a provider request'))
@@ -102,6 +112,7 @@ def test_tiled_lookup_boundaries_replay_and_http(tiled,monkeypatch):
             patch.setattr(p,'transform',lambda a,b,xs,ys:([x],[y]) if a=='EPSG:4326' else real_transform(a,b,xs,ys))
             result=release.lookup('canary',-1,52)
             assert len(result['observations'])==9
+            assert {(o['source'],o['metric']) for o in result['observations']} == {(s,m) for s in p.PROVIDERS for m in p.METRICS}
             assert ('canary' in release.locate(-1,52)) == (tile is not None)
             assert all((f'canary-{tile}-' in o['record_id']) if tile else o['status']=='outside_extract' for o in result['observations'])
     # CRS path plus exact source values, encoding states and cell geometry.
@@ -125,7 +136,7 @@ def test_tiled_lookup_boundaries_replay_and_http(tiled,monkeypatch):
     base=f'http://127.0.0.1:{server.server_port}'
     try:
         # Source edits after snapshot creation cannot change a running reader.
-        record=release.manifest['records'][0]
+        record=release.records[result['observations'][0]['record_id']]
         (release.root/record['path']).write_bytes(b'changed externally')
         actual=json.load(urlopen(base+f'/api/pilot/location?site=canary&lon={lon[0]}&lat={lat[0]}'))
         assert actual==result
