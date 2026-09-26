@@ -1,9 +1,13 @@
 # 50 × 50 km extraction canary
 
-This is an engineering acquisition and fidelity checkpoint. It is not yet added
-to the map, and is not a validated research exposure release. The current app
-continues to use its existing regional release. No new quietness bounds, event
-indicators, airport periods or all-source totals are inferred.
+This is an engineering acquisition and fidelity checkpoint, not a validated
+research exposure release. The app uses a separate map derivative of this archive.
+No new quietness bounds, event indicators, airport periods or all-source totals
+are inferred.
+
+**Integration update, 26 September 2026:** a separate [tiled map release](TILED_MAP.md)
+now serves the acquired area alongside Heathrow. This acquisition archive remains
+unchanged.
 
 ## Completed acquisition: 26 September 2026
 
@@ -162,12 +166,10 @@ cannot be reacquired or overwritten. The generated data remain outside Git;
 pushing the application is not a data backup. The CLI never changes the normal
 launcher or installs the canary as the app's active release.
 
-## Remaining canary phase
+## Subsequent integration
 
-After the acquisition checkpoint, implement a tiled reader/display path and
-benchmark its private snapshot, 48-reader cache, archive, memory and latency on
-this larger working set. The existing four-region performance numbers cannot be
-assumed to hold for 225 rasters. Test exact tile-boundary lookup ownership and
-display seams before exposing the wider area in the app. That serving/display
-gate, participant usability sessions and provider zero/domain clarification
-remain separate from this extraction checkpoint.
+The tiled reader/display path, exact ownership and display-seam checks, and the
+larger-working-set snapshot/cache/export/latency benchmark are now complete.
+See [the integration report](TILED_MAP.md) for measured results rather than
+extrapolating the earlier four-region numbers. Participant usability sessions and
+provider zero/domain clarification remain open and separate from this checkpoint.

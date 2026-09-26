@@ -145,8 +145,11 @@ native-grid requests per source/indicator, fixed acquisition budgets, resumable
 checkpoints and exact seam/reference comparisons. It retains failed attempts and
 supports explicit recovery of damaged checkpoints without trusting lost evidence.
 Run `python scripts/33_tiled_canary.py` to inspect the plan without networking.
-See [canary status, verification and commands](notes/TILED_CANARY.md). This dataset
-is an engineering checkpoint; it is not automatically installed in the map.
+See [canary status, verification and commands](notes/TILED_CANARY.md). The separate
+[tiled map derivative](notes/TILED_MAP.md) integrates this area and Heathrow into
+the explorer (2,600 km²). Build it offline with `python scripts/34_tiled_map.py`;
+the launcher selects the verified derivative when installed. Source rasters and
+unknown-value meanings remain unchanged.
 
 ## Existing scientific pipeline
 

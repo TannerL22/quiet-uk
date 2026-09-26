@@ -29,12 +29,14 @@ def check(release):
             key=(x,y,endx,endy,w,s,e,n)
             if key not in expected_masks:
                 expected=np.zeros(aa.shape,dtype=bool)
-                for start in range(0,aa.shape[0],32):
-                    stop=min(start+32,aa.shape[0])
-                    xx,yy=np.meshgrid((x+np.arange(aa.shape[1])+.5)*10,-(y+np.arange(start,stop)+.5)*10)
-                    xs,ys=transform('EPSG:3857','EPSG:27700',xx.ravel(),yy.ravel())
+                for start in range(0,aa.size,65536):
+                    stop=min(start+65536,aa.size)
+                    indices=np.arange(start,stop)
+                    xx=(x+indices%aa.shape[1]+.5)*10
+                    yy=-(y+indices//aa.shape[1]+.5)*10
+                    xs,ys=transform('EPSG:3857','EPSG:27700',xx,yy)
                     xs,ys=np.asarray(xs),np.asarray(ys)
-                    expected[start:stop]=((xs>=w)&(xs<e)&(ys>s)&(ys<=n)).reshape(stop-start,aa.shape[1])
+                    expected.reshape(-1)[start:stop]=(xs>=w)&(xs<e)&(ys>s)&(ys<=n)
                 expected_masks[key]=expected
             expected=expected_masks[key]
             if not np.array_equal(aa|bb,expected): raise ValueError(f'Display gap at {tile}/{other}/{source}/{metric}')
