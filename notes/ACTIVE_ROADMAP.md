@@ -101,9 +101,9 @@ regional release without requiring a national release. The local full suite pass
 Desktop/narrow-screen browser checks establish operation, not comprehension.
 No participant sessions have been completed, so the user-tested phase remains open.
 Use findings to refine the existing explorer. The regional serving prerequisite
-below is implemented. The 50 × 50 km acquisition checkpoint is now complete;
-next integrate tiled lookup/display and measure serving costs before committing
-to wider coverage.
+below is implemented. The 50 × 50 km acquisition, tiled map integration and local
+serving checks are complete; use the wider map in the usability protocol before
+committing to another geographic expansion.
 
 **Regional serving isolation implemented:** the server copies and hashes exact
 release bytes into a private temporary snapshot, reuses up to 48 exclusively
@@ -123,18 +123,26 @@ source/indicator rasters. All 360 shared-strip comparisons match exactly, as do
 27 million source-indicator cells in the existing regional release. The run
 recovered damaged checkpoints without reusing responses whose evidence was lost,
 and completed within its original cumulative budgets. See
-[acquisition results and replay](TILED_CANARY.md). This data is not installed in
-the map. The next implementation is tiled point lookup and display, with explicit
-boundary ownership and seam tests, followed by serving/memory/export measurements
-on the larger working set. The full tiled-canary phase remains open until those
-checks pass.
+[acquisition results and replay](TILED_CANARY.md).
+
+**Tiled map and local serving checks completed:** derivative
+`pilot-be13e2d6e9145df58aa6` presents the wider area continuously, retaining Heathrow
+for 2,600 km² of detailed coverage. All 234 display images reproduce; 360 display
+seams have no gaps or double opacity. Checks cover 1,872 native boundary
+observations and 72 outside observations, including shuffled recovery records.
+At five concurrent local clients, 200 requests per workload measured p95 372 ms
+for points and 346 ms for three-place comparisons. The 48-reader bound and disk
+streaming remain in place; export peaked at 5.9 MB of Python allocations and
+408 MB whole-process RSS. Desktop and phone-sized browser checks passed. These
+complete the bounded local integration gate, not public capacity, participant
+usability or independent acoustic validation. See [scope and reproduction](TILED_MAP.md).
 
 **Next evidence task:** obtain citable provider zero/nodata and calculation-domain
 definitions, and an airport threshold/period/product crosswalk. A
 [technical clarification draft](PROVIDER_CLARIFICATION_DRAFT.md) is ready but has
 not been sent. The documented reporting floors alone do not certify unknown
 cells as quiet; no additional bounds are enabled. Continue coherent explorer
-improvements independently while this authority gate remains open. Before tiled
+improvements independently while this authority gate remains open. Before further
 expansion, account explicitly for provider rectangle edges and retain the native
 grid checks; incomplete cross-protocol evidence remains a recorded limitation.
 
@@ -143,7 +151,7 @@ grid checks; incomplete cross-protocol evidence remains a recorded limitation.
 | Portable verification (complete) | A checkout others can test | Default Windows/Linux suites passed without local artifacts; release integration checks remain explicit; provider fixtures exercise real encodings |
 | Evidence semantics and extraction fidelity | Consistent source-qualified states and exports | Verified bounds distinguished from unknowns; aircraft minima/thresholds/period evidence separated; small WCS cross-protocol checks pass; new interpretation release preserves raw originals |
 | Coherent, user-tested explorer | One understandable map experience and independently runnable regional data | Consistent legends and source warnings; 4/5 users complete core tasks, none in the formative sample equates unknown with silence or misses Heathrow aircraft evidence |
-| Tiled 50 × 50 km canary | Bounded expansion and measured serving costs | Exact overlaps, resumability, immutable serving snapshots, bounded-memory exports, tile/latency checks and explicit acquisition budgets |
+| Tiled 50 × 50 km canary (local gate complete) | Bounded expansion and measured serving costs | Exact overlaps, resumability, immutable serving snapshots, bounded-memory exports, tile/latency checks and explicit acquisition budgets; results in TILED_MAP.md |
 | Traceable England release and public beta | Replace the provisional overview, then distribute reliably | Versioned analytical/display products, clear coverage, discrepancy reports, attribution, provider arrangements, operating limits and rollback |
 | UK coverage and validated richer evidence | Country adapters and justified new indicators | Country-specific source/metric/period validation; independent validation appropriate to claims; no inferred event histories or invented quiet-end precision |
 

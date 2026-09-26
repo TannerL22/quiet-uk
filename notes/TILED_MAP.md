@@ -8,6 +8,53 @@ point inspection, comparisons, saved views and evidence downloads use the same
 release. The default new view shows road Lden across the wider area; saved source
 and metric choices still take precedence.
 
+## Delivered checkpoint: 26 September 2026
+
+Installed local release: `pilot-be13e2d6e9145df58aa6` in
+`artifacts/tiled_map_v2`. The one-click launcher is running this release.
+
+| Verification or measurement | Result |
+|---|---:|
+| Reproduced display images | 234 of 234 |
+| Hashed release files | 1,147 |
+| Exact analytical seams / original reference cells | 360 / 27,000,000 |
+| Display seams / overlapping display pixels checked | 360 / 13,491,864 |
+| Display gaps / double-opacity pixels | 0 / 0 |
+| Boundary / outside source-indicator observations | 1,872 / 72 |
+| Point HTTP p95, 200 requests, five clients | 372.38 ms |
+| Three-place HTTP p95, 200 requests, five clients | 345.74 ms |
+| Display HTTP p95, all 234 responses hash-checked | 24.33 ms |
+| Private snapshot startup, after source verification | 7.94 s |
+| Evidence bytes / first download archive | 2,028,093,907 / 166,242,473 bytes |
+| First / cached export | 16.69 / 0.23 s |
+| Export Python allocation peak / process peak RSS | 5,931,550 / 407,691,264 bytes |
+| Open reader cache / private-copy cleanup | 48 / passed |
+
+The final benchmark ran after construction, replay and browser interactions had
+finished, with the app idle. Both local targets passed (point p95 under 500 ms,
+three-place p95 under 1,500 ms). An earlier exploratory run during other verification
+work missed both targets; retain `artifacts/tiled_map_benchmark.json` as evidence
+of workload sensitivity, rather than treating the final figures as hard bounds.
+The workloads have different cache reuse patterns; comparison time is not a
+linear multiple of point time.
+
+Local reports: `artifacts/tiled_map_v2_verification.json`,
+`artifacts/tiled_map_v2_benchmark.json` and `artifacts/tiled_map_v2_display_seams.json`.
+The complete local suite passed 506 tests, with two Windows skips and three
+opt-in release checks deselected. Subsequent targeted tests cover the seam gate,
+resumption and shuffled recovery records; the
+[Windows/Linux Python 3.12/3.14 CI matrix passed all four jobs](https://github.com/TannerL22/quiet-uk/actions/runs/36257431463)
+for implementation commit `51a4a5f`.
+
+Browser checks used 1440 × 1000 and 390 × 844 viewports. They covered continuous
+coverage, coordinate search, rail/night selection, Heathrow aircraft (86.0 dB Lden
+at the retained sample), its road-view warning, cross-area comparison, outside
+coverage, keyboard controls and saved metric/camera reload. The narrow page had
+no horizontal overflow; browser error logs were empty. Test comparison points
+were cleared and the viewport override was reset. The desktop screenshot is
+`artifacts/tiled_map_desktop.png`. These are functional checks, not participant
+usability sessions.
+
 ## Analytical ownership and evidence
 
 The map release is a separate immutable schema-3 derivative. It contains the
