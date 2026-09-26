@@ -5,6 +5,39 @@ to the map, and is not a validated research exposure release. The current app
 continues to use its existing regional release. No new quietness bounds, event
 indicators, airport periods or all-source totals are inferred.
 
+## Completed acquisition: 26 September 2026
+
+Sealed local release: `canary-90d7e5ac25859921a92b`, referenced to
+`pilot-70542da395300f52dd27`.
+
+| Check | Result |
+|---|---:|
+| Accepted source/indicator rasters | 225 of 225 |
+| Exact shared-strip comparisons | 360 |
+| Shared-strip source-indicator cells checked | 721,152 |
+| Exact reference intersections | 108 |
+| Unique reference source-indicator cells checked | 27,000,000 |
+| HTTP attempts, including discovery and unavailable journals | 265 of 300 |
+| Charged response bytes, including unavailable-attempt reservations | 2,225,820,452 of 3,221,225,472 |
+| Retained dataset size, including recovery evidence | 1,701,020,906 bytes |
+
+All comparisons match raw values and validity masks exactly. The dataset remains
+local under `artifacts/tiled_canary_v1`; the source push does not back it up.
+A separate post-seal `--verify` run passed offline, checking the manifest/file
+hashes, metadata reconstruction, raster QA and all comparisons again; its report
+is `artifacts/tiled_canary_offline_verification.json`.
+The pre-recovery source checkpoint is retained in
+`recovery/pre-recovery-source-e129cc2.zip`; the sealed construction directory
+contains the recovery-capable version used to finish and verify the run. This
+records the code transition without asserting per-attempt code provenance that
+was not originally captured.
+
+The recovery regression suite passed 11 tests. The local full suite had 502
+passes, two skips and three opt-in deselections, plus one Windows connection-abort
+failure in the existing HTTP API tests; all 15 tests in that module passed on
+rerun. The [Windows/Linux, Python 3.12/3.14 CI matrix passed all four jobs](https://github.com/TannerL22/quiet-uk/actions/runs/36233521397)
+for source commit `537c35a`.
+
 ## Area and recipe
 
 The study rectangle is `[445005, 165005, 495005, 215005]` in EPSG:27700
