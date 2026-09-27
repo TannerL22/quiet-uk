@@ -14,7 +14,7 @@
   const message = text => { $('message').textContent = text; $('message').hidden = !text; };
   const records = () => manifest.records.filter(r => r.site === site && r.source === source && r.metric === metric);
   const feature = geometry => ({type: 'Feature', properties: {}, geometry});
-  const areaSize = () => (manifest.sites[site].size_m || 2000)/1000;
+  const areaDimensions = () => `${(manifest.sites[site].width_m || manifest.sites[site].size_m || 2000)/1000} × ${(manifest.sites[site].height_m || manifest.sites[site].size_m || 2000)/1000} km`;
   // Pasting another comparison link into this same tab can change only the
   // fragment. Reload to validate its release/recipe just like a fresh visit.
   // Our own replaceState updates do not fire hashchange.
@@ -56,7 +56,7 @@
     $('point-value').textContent = active.value_db === null ? (active.display_label || (active.status === 'outside_pilot' ? 'Outside coverage' : 'Unreported')) : `${active.value_db.toFixed(1)} dB(A)`;
     $('map-value').textContent = $('point-value').textContent+' · at selected point';
     $('point-status').textContent = active.value_db === null
-      ? (active.explanation || (active.status === 'outside_pilot' ? `Select a point inside the outlined ${areaSize()} × ${areaSize()} km area, or use the England map.` : 'Below a reporting cutoff or missing. A quietness value cannot be assigned.'))
+      ? (active.explanation || (active.status === 'outside_pilot' ? `Select a point inside the outlined ${areaDimensions()} area, or use the England map.` : 'Below a reporting cutoff or missing. A quietness value cannot be assigned.'))
       : `${names[source]} · ${labels[metric]} · modelled in a 10 m cell`;
     for (const key of Object.keys(names)) {
       const tr = document.createElement('tr'), th = document.createElement('th');
@@ -141,7 +141,7 @@
     $('period').textContent = p.reference_period ? `Reference period: ${p.reference_period.start.slice(0,4)} · 10 m grid · 4 m above ground` : 'Aircraft reference period: unspecified by provider · 10 m grid';
     $('provider').href = 'https://environment.data.gov.uk/dataset/'+p.metadata_id;
     $('map-title').textContent = `${names[source]} · ${labels[metric]}`;
-    $('area-size').textContent = `${areaSize()} × ${areaSize()} km`;
+    $('area-size').textContent = areaDimensions();
     map.getSource('pilot-area').setData(feature(manifest.sites[site].footprint || selected[0].footprint));
     map.getSource('all-areas').setData({type:'FeatureCollection', features:Object.entries(manifest.sites).map(([id, area]) => ({...feature(area.footprint || manifest.records.find(r=>r.site===id).footprint),properties:{name:area.name}}))});
     renderPoint();
@@ -239,10 +239,10 @@
       }
       $('site').value = site;
       const areaCount = Object.keys(manifest.sites).length;
-      const areaTotal = Object.values(manifest.sites).reduce((sum,s)=>sum+((s.size_m||2000)/1000)**2,0);
-      $('coverage-title').textContent = `${areaCount} detailed areas · ${areaTotal} km²`;
+      const areaTotal = Object.values(manifest.sites).reduce((sum,s)=>sum+(s.area_km2 ?? ((s.size_m||2000)/1000)**2),0);
+      $('coverage-title').textContent = `${areaCount} detailed ${areaCount === 1 ? 'area' : 'areas'} · ${areaTotal} km²`;
       $('coverage-note').textContent = 'Outlines mark available areas. Outside them, no detailed noise level is available.';
-      $('search-status').textContent = `Detailed evidence is available in ${areaCount} areas.`;
+      $('search-status').textContent = `Detailed evidence is available in ${areaCount} ${areaCount === 1 ? 'area' : 'areas'}.`;
       $('intro').textContent = 'Explore modelled transport noise by source and time of day.';
       document.querySelector(`input[name="source"][value="${source}"]`).checked = true;
       document.querySelector(`input[name="metric"][value="${metric}"]`).checked = true;
@@ -279,7 +279,7 @@
         $('sources').disabled = false; $('metrics').disabled = false; $('recenter').disabled = false;
         $('place').disabled = false; $('search-button').disabled = false;
         $('pilot-search').addEventListener('submit', search);
-        $('site').addEventListener('change', () => {++navigation; $('search-results').hidden=true; $('search-status').textContent=`Detailed evidence is available in ${areaCount} areas.`; site = $('site').value; location = null; updateLayer(); chooseSite();});
+        $('site').addEventListener('change', () => {++navigation; $('search-results').hidden=true; $('search-status').textContent=`Detailed evidence is available in ${areaCount} ${areaCount === 1 ? 'area' : 'areas'}.`; site = $('site').value; location = null; updateLayer(); chooseSite();});
         $('sources').addEventListener('change', e => {source = e.target.value; updateLayer();});
         $('show-aircraft').addEventListener('click', () => { source = 'aircraft'; document.querySelector('input[name="source"][value="aircraft"]').checked = true; updateLayer(); });
         $('metrics').addEventListener('change', e => {metric = e.target.value; updateLayer();});

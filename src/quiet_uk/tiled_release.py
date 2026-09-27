@@ -45,7 +45,7 @@ def derived_records(recipe, acquired, regional):
                       site='canary', core_bounds=tile['core_bounds'])
         records.append(record)
     for original in regional['records']:
-        if original['site'] == 'heathrow':
+        if original['site'] == 'heathrow' and recipe['bounds'] != c.EXTENDED_BOUNDS:
             record = prefixed({k: copy.deepcopy(v) for k,v in original.items() if k not in ('display','evidence','footprint')}, 'regional/')
             record['core_bounds'] = original['qa']['bounds']
             records.append(record)
@@ -59,7 +59,10 @@ def sites_for(recipe, regional):
     lon, lat = transform('EPSG:27700', 'EPSG:4326', [(w+e)/2], [(s+n)/2])
     sites = {'canary': {'name': 'Oxford–Reading–Chilterns', 'center': [lon[0],lat[0]],
                         'size_m': e-w, 'footprint': footprint(recipe['bounds'])}}
-    if 'heathrow' in regional['sites']:
+    if recipe['bounds'] == c.EXTENDED_BOUNDS:
+        sites['canary'].update(name='Oxford–London', width_m=e-w, height_m=n-s,
+                               area_km2=(e-w)*(n-s)/1_000_000)
+    elif 'heathrow' in regional['sites']:
         sites['heathrow'] = copy.deepcopy(regional['sites']['heathrow'])
         record = next(r for r in regional['records'] if r['site'] == 'heathrow')
         sites['heathrow']['footprint'] = footprint(record['qa']['bounds'])

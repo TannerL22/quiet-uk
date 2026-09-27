@@ -168,3 +168,58 @@ def test_resealed_tile_ownership_tampering_is_rejected(tiled,monkeypatch):
     (release.root/'manifest.json').write_bytes(p.json_bytes(m))
     with pytest.raises(CatalogueIntegrityError,match='analytical record'):
         p.SourcePilot(release.root)
+
+
+def test_extension_reuses_west_acquires_only_east_and_replays_offline(tiled, monkeypatch):
+    release, west, reference = tiled
+    east = copy.deepcopy(west)
+    w,s,e,n = west['bounds']
+    east['bounds'][2] = e+(e-w)
+    for row in range(2):
+        for col in range(2,4):
+            core = [w+col*100,s+row*100,w+(col+1)*100,s+(row+1)*100]
+            east['tiles'].append({'id':f'r{row}c{col}','row':row,'column':col,
+                'core_bounds':core,'halo_bounds':c.intersection([core[0]-10,core[1]-10,core[2]+10,core[3]+10],east['bounds'])})
+    east['limits']['http_attempts'] = 200
+    monkeypatch.setattr(c, 'EXTENDED_BOUNDS', east['bounds'])
+    monkeypatch.setattr(c, 'plan', lambda bounds=None, **kw: copy.deepcopy(east if bounds==east['bounds'] else west))
+    destination = release.root.with_name(release.root.name+'-extension')
+    c.seed_extension(release.root/'canary', destination, reference)
+    (destination/'plan.json').write_bytes(p.json_bytes(west))
+    with pytest.raises(ValueError,match='Incomplete extension seed'):
+        c.verify(destination,reference,require_complete=False)
+    (destination/'plan.json').write_bytes(p.json_bytes(east))
+    calls=[]
+    def get(url, *, params, **kwargs):
+        params=dict(params); source,metric=params['coverage'].split('-')
+        bounds=list(map(float,params['bbox'].split(',')))
+        assert bounds[0]>=e-10  # No western requests.
+        calls.append(params)
+        record=next(r for r in reference.records.values() if r['source']==source and r['metric']==metric)
+        with rasterio.open(reference.root/record['path']) as ds:
+            win=from_bounds(*bounds,transform=ds.transform).round_offsets().round_lengths()
+            data=ds.read(1,window=win)
+            profile={**ds.profile,'width':data.shape[1],'height':data.shape[0],'transform':ds.window_transform(win)}
+        with MemoryFile() as memory:
+            with memory.open(**profile) as ds: ds.write(data,1)
+            return Response(chunks=[memory.read()])
+    monkeypatch.setattr(c.requests,'get',get)
+    assert c.acquire(destination,reference,max_new_rasters=9)['status']=='checkpoint'
+    c.acquire(destination,reference)
+    assert len(calls)==36
+    monkeypatch.setattr(c.requests,'get',lambda *a,**k:pytest.fail('Offline replay made a request'))
+    assert c.verify(destination,reference)['exact_seam_pairs']==90
+    output=destination.with_name(destination.name+'-map')
+    t.publish(destination,reference.root,output)
+    expanded=p.SourcePilot(output)
+    assert expanded.verify(reproduce=True)['verified_records']==72
+    assert list(expanded.manifest['sites'])==['canary']
+    assert expanded.manifest['sites']['canary']['area_km2']==.08
+    old=json.loads((destination/'reuse/records.json').read_text('utf-8'))
+    current=json.loads((destination/'records.json').read_text('utf-8'))
+    by_key={(r['tile'],r['source'],r['metric']):r for r in current}
+    assert all(by_key[(r['tile'],r['source'],r['metric'])]==r for r in old)
+    current[0]['sha256']='changed'
+    (destination/'records.json').write_bytes(p.json_bytes(current))
+    with pytest.raises(ValueError,match='changed'):
+        c.verify(destination,reference)

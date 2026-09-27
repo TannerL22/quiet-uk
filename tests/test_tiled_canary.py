@@ -62,6 +62,21 @@ def test_provider_edges_clip_without_padding_or_rescaling():
         c.request_bounds(tile, {**info, 'grid': {'center_origin': [w+6, s+5]}})
 
 
+def test_eastern_extension_preserves_west_and_checks_cross_boundary_strip():
+    original = c.plan()
+    extended = c.plan(c.EXTENDED_BOUNDS)
+    assert len(extended['tiles']) == 50
+    assert extended['planned_raster_requests'] == 450
+    assert extended['area_km2'] == 5000
+    tiles = {t['id']: t for t in extended['tiles']}
+    assert all(tiles[t['id']] == t for t in original['tiles'])
+    for row in range(5):
+        overlap = c.intersection(tiles[f'r{row}c4']['halo_bounds'], tiles[f'r{row}c5']['halo_bounds'])
+        assert overlap[2]-overlap[0] == 10
+    assert extended['limits']['response_bytes'] == original['limits']['response_bytes']
+    assert extended['limits']['transfer_bytes'] == 2*original['limits']['transfer_bytes']
+
+
 def test_retry_retains_failure_and_reuses_success_without_network(tmp_path):
     responses = [Response(503, [b'error']), Response()]
     calls = []
