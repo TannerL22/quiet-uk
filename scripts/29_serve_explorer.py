@@ -27,6 +27,9 @@ def main():
     tiled = ROOT/'artifacts/tiled_map_v2'
     if (tiled/'manifest.json').exists():
         regional = tiled
+    expanded = ROOT/'artifacts/oxford_london_map_v1'
+    if (expanded/'manifest.json').exists():
+        regional = expanded
     parser.add_argument('--pilot', type=Path, default=regional if (regional/'manifest.json').exists() else ROOT/'artifacts/source_pilot_v1')
     args = parser.parse_args()
     if args.regional_only and args.build_only:

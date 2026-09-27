@@ -1,6 +1,6 @@
 # Quiet UK active roadmap
 
-Updated 26 September 2026. This supersedes the delivery ordering in older reviews;
+Updated 27 September 2026. This supersedes the delivery ordering in older reviews;
 those documents remain historical evidence.
 
 **Review-adjusted plan:** see [Review response and delivery plan](REVIEW_RESPONSE_AND_DELIVERY_PLAN.md).
@@ -97,13 +97,30 @@ uses global coordinates. The launcher identifies the running application and
 regional release without requiring a national release. The local full suite passed
 474 tests (two Windows skips; three opt-in release checks deselected).
 
-**Next product checkpoint:** run the [five-person usability check](EXPLORER_USABILITY_CHECK.md).
-Desktop/narrow-screen browser checks establish operation, not comprehension.
-No participant sessions have been completed, so the user-tested phase remains open.
-Use findings to refine the existing explorer. The regional serving prerequisite
-below is implemented. The 50 × 50 km acquisition, tiled map integration and local
-serving checks are complete; use the wider map in the usability protocol before
-committing to another geographic expansion.
+**Next product checkpoint: expand detailed data coverage.** The owner stopped
+the usability session and explicitly prioritised useful data over further testing
+questions. [Partial participant findings](USABILITY_P1_2026-09-27.md) support
+understanding of colours, road-source scope, Unknown and outside coverage. They
+also highlight missing answers and an expectation of overall sound information.
+Aircraft discoverability remains unresolved. The five-person gate was not passed;
+it is deferred and does not block this expansion.
+
+The proposed next bounded footprint extends the existing square eastward into a
+100 × 50 km Oxford–London rectangle (BNG edges 445005, 165005, 545005, 215005),
+subject to checking provider envelopes and the retained Heathrow overlap. Target
+5,000 km² total, including current Heathrow coverage rather than counting it twice.
+Keep the native 10 m grid and all nine source/indicator layers. The current
+acquisition and derivative builders are specialised to one 50 km square; first
+generalise them to retain the sealed western tiles and acquire only the new eastern
+tiles, with explicit budgets and cross-release edge checks. Reuse evidence instead
+of re-downloading existing coverage. Publish a new immutable release only after
+grid, overlap, display and serving checks pass, then install it in the launcher.
+This footprint is a next implementation target, not acquired or verified coverage.
+
+Expanding geography will not fill Unknown cells inside existing coverage. Track
+that evidence gap separately: assess provider domain/encoding evidence and credible
+additional sources before adding values or quietness bounds. Do not increase display
+precision or present a combined total to make missing evidence appear resolved.
 
 **Regional serving isolation implemented:** the server copies and hashes exact
 release bytes into a private temporary snapshot, reuses up to 48 exclusively

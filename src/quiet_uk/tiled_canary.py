@@ -22,6 +22,7 @@ from .provider_audit import description
 LIMITS = {'http_attempts': 300, 'transfer_bytes': 3*1024**3, 'response_bytes': 32*1024**2,
           'attempts_per_request': 3, 'interval_seconds': 1.0, 'min_free_disk_bytes': 10*1024**3}
 BOUNDS = [445005, 165005, 495005, 215005]
+EXTENDED_BOUNDS = [445005, 165005, 545005, 215005]
 
 
 def intersection(a, b):
@@ -30,22 +31,56 @@ def intersection(a, b):
 
 
 def plan(bounds=BOUNDS, *, tile_m=10000):
+    extended = list(bounds) == EXTENDED_BOUNDS
     if (len(bounds) != 4 or not all(isinstance(v, int) and not isinstance(v, bool) and v % 10 == 5 for v in bounds)
-            or bounds[2]-bounds[0] != 50000 or bounds[3]-bounds[1] != 50000 or tile_m != 10000):
+            or (bounds[2]-bounds[0] != 50000 and not extended) or bounds[3]-bounds[1] != 50000 or tile_m != 10000):
         raise ValueError('Canary requires a 50 km square on native 10 m cell edges and 10 km core tiles')
     tiles = []
     for row in range(5):
-        for col in range(5):
+        for col in range(10 if extended else 5):
             w, s = bounds[0]+col*tile_m, bounds[1]+row*tile_m
             core = [w, s, w+tile_m, s+tile_m]
             halo = intersection([w-10, s-10, w+tile_m+10, s+tile_m+10], bounds)
+            if extended and col < 5:
+                halo = intersection(halo, BOUNDS)  # Preserve western request bytes.
             tiles.append({'id': f'r{row}c{col}', 'row': row, 'column': col, 'core_bounds': core, 'halo_bounds': halo})
-    return {'schema_version': 1, 'name': 'Oxford–Reading–Chilterns tiled canary',
+    result = {'schema_version': 1, 'name': 'Oxford–Reading–Chilterns tiled canary',
             'crs': 'EPSG:27700', 'bounds': list(bounds), 'tile_m': tile_m, 'halo_m': 10,
             'tiles': tiles, 'sources': list(p.PROVIDERS), 'metrics': list(p.METRICS),
             'planned_raster_requests': 225, 'core_source_indicator_cells': 225_000_000,
             'area_km2': 2500, 'limits': dict(LIMITS),
             'status': 'engineering_canary_not_a_map_or_research_exposure_release'}
+    if extended:
+        result.update(name='Oxford–London tiled extension', planned_raster_requests=450,
+                      core_source_indicator_cells=450_000_000, area_km2=5000)
+        result['limits'].update(http_attempts=600, transfer_bytes=6*1024**3)
+    return result
+
+
+def seed_extension(parent, root, reference):
+    """Copy a sealed parent; retain its complete evidence and cumulative budget."""
+    parent, root = Path(parent).resolve(), Path(root).resolve()
+    if root.is_relative_to(parent) or parent.is_relative_to(root):
+        raise ValueError('Extension must have a separate destination')
+    verify(parent, reference)
+    if json.loads((parent/'plan.json').read_text('utf-8')) != plan():
+        raise ValueError('Extension requires the original western canary')
+    with ResourceLock(root, 'seed extension'):
+        if root.exists():
+            raise FileExistsError('Use a new extension destination')
+        root.mkdir(parents=True)
+        manifest = json.loads((parent/'manifest.json').read_text('utf-8'))
+        for name in [*manifest['files'], 'manifest.json']:
+            archived = root/'reuse'/name
+            archived.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(parent/name, archived)
+            if name != 'manifest.json':
+                target = root/name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(archived, target)
+        atomic_json(root/'plan.json', plan(EXTENDED_BOUNDS))
+        verify(root, reference, require_complete=False)
+    return {'status':'seeded', 'reused_rasters':225, 'new_rasters':225, 'area_km2':5000}
 
 
 def request_bounds(tile, info):
@@ -97,8 +132,20 @@ def verify(root, reference, *, require_complete=True, records=None):
             if not path.is_relative_to(root.resolve()) or p.file_hash(path) != digest:
                 raise ValueError('Sealed canary evidence changed')
     recipe = json.loads((root/'plan.json').read_text('utf-8'))
+    if (root/'reuse').exists() and recipe['bounds'] != EXTENDED_BOUNDS:
+        raise ValueError('Incomplete extension seed; do not acquire as the western canary')
     if recipe != plan(recipe['bounds']):
         raise ValueError('Canary plan changed')
+    if recipe['bounds'] == EXTENDED_BOUNDS:
+        parent = root/'reuse'
+        verify(parent, reference)
+        if json.loads((parent/'plan.json').read_text('utf-8')) != plan():
+            raise ValueError('Unexpected extension parent')
+        inherited = json.loads((parent/'records.json').read_text('utf-8'))
+        current = records if records is not None else json.loads((root/'records.json').read_text('utf-8'))
+        by_identity = {(r['tile'],r['source'],r['metric']):r for r in current}
+        if any(by_identity.get((r['tile'],r['source'],r['metric'])) != r for r in inherited):
+            raise ValueError('Reused western records changed')
     products = json.loads((root/'products.json').read_text('utf-8'))
     def saved_capture(_root, name, url, params=None, required=True):
         path = root/name
@@ -267,7 +314,10 @@ def acquire(root, reference, *, max_new_rasters=225):
         if (root/'manifest.json').exists():
             raise FileExistsError('Canary already sealed; verify or use a new destination')
         root.mkdir(parents=True, exist_ok=True)
-        recipe = plan()
+        recipe = (json.loads((root/'plan.json').read_text('utf-8'))
+                  if (root/'plan.json').exists() else plan())
+        if recipe != plan(recipe['bounds']):
+            raise ValueError('Pinned plan changed')
         for name, value in (('plan.json', recipe), ('reference.json', reference.manifest)):
             path = root/name
             if path.exists() and json.loads(path.read_text('utf-8')) != value:
@@ -315,7 +365,7 @@ def acquire(root, reference, *, max_new_rasters=225):
                                       sha256=p.file_hash(body), qa=qa)
                     records.append(record); completed += 1
                     atomic_json(records_path, records)
-                    print(f'{len(records)}/225 {tile["id"]}/{source}/{metric}: {record["status"]}', flush=True)
+                    print(f'{len(records)}/{recipe["planned_raster_requests"]} {tile["id"]}/{source}/{metric}: {record["status"]}', flush=True)
         report = verify(root, reference)
         atomic_json(root/'verification.json', report)
         repo = Path(__file__).resolve().parents[2]

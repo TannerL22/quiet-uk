@@ -151,6 +151,12 @@ the explorer (2,600 km²). Build it offline with `python scripts/34_tiled_map.py
 the launcher selects the verified derivative when installed. Source rasters and
 unknown-value meanings remain unchanged.
 
+The [Oxford–London expansion](notes/OXFORD_LONDON_EXPANSION.md) reuses that sealed
+western acquisition and adds 25 eastern cores, targeting 5,000 km² at the same
+10 m resolution. Its commands, cumulative budgets and delivery status are recorded
+there. The launcher prefers `artifacts/oxford_london_map_v1` when installed; the
+earlier releases remain available for verification and rollback.
+
 ## Existing scientific pipeline
 
 A reproducible pipeline for building a fine-resolution map of **modelled anthropogenic environmental noise** in England using Defra Round 4 strategic noise mapping.

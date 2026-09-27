@@ -20,6 +20,8 @@ function Test-QuietUK {
         if (Test-Path -LiteralPath $interpretationManifestPath) { $pilotManifestPath = $interpretationManifestPath }
         $tiledManifestPath = Join-Path $projectRoot 'artifacts\tiled_map_v2\manifest.json'
         if (Test-Path -LiteralPath $tiledManifestPath) { $pilotManifestPath = $tiledManifestPath }
+        $expandedManifestPath = Join-Path $projectRoot 'artifacts\oxford_london_map_v1\manifest.json'
+        if (Test-Path -LiteralPath $expandedManifestPath) { $pilotManifestPath = $expandedManifestPath }
         if (Test-Path -LiteralPath $pilotManifestPath) {
             if ($record.regional_serving -ne 'private_snapshot_v1') { return $false }
             $expectedPilot = Get-Content -LiteralPath $pilotManifestPath -Raw | ConvertFrom-Json

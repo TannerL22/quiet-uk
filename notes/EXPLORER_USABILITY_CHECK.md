@@ -1,19 +1,27 @@
 # Regional explorer: formative usability check
 
-Status: **ready to run; no participant sessions completed**. This is a short
+Status: **session stopped at the owner's request on 27 September 2026; coverage expansion takes priority**. Partial findings are retained in the [P1 observation log](USABILITY_P1_2026-09-27.md). The five-person gate has not passed and is not a prerequisite for the next expansion. The remaining protocol is available for future use, not an active task. This is a short
 protocol for five people unfamiliar with Quiet UK. Browser regression checks are
 not participant observations. The product remains a general-purpose noise map;
 participants can bring their own reason for comparing places.
 
 ## Setup
 
-Use the current source and interpretation release `pilot-70542da395300f52dd27`.
+Use the current source and interpretation release `pilot-be13e2d6e9145df58aa6`
+(Oxford–Reading–Chilterns and Heathrow, 2,600 km²). The starting source commit for
+the September session is `01e7ab806c7df9c72f3a03d5dfada49efea799c1`.
 Record source commit, release ID, browser and viewport for each session. Include
 desktop and phone-sized use, and a keyboard-only pass. Start with an empty saved
 comparison in a separate test browser profile, preserving personal saved places.
 Allow approximately 15–20 minutes. Ask participants to explain what they think
 the map means; let them attempt tasks without coaching. Record intervention when
 help becomes necessary, then continue to understand the difficulty.
+
+Use the [session sheet](USABILITY_SESSION_SHEET.md) to record observations. Give
+only one task at a time; do not show the participant this protocol's success
+criteria. Keep the tested UI unchanged during a session. If a participant is
+available live, pause automated interaction with their browser. Record a return
+visit separately from a first-use session.
 
 ## Tasks and observations
 
@@ -60,5 +68,8 @@ feedback, not a population-wide usability claim or acoustic validation.
   continuous rendering canvas. Scientific source values and release IDs are unchanged.
 
 The subsequent [regional serving increment](REGIONAL_SERVING.md) implements private
-reader snapshots and bounded, reusable disk exports. Canary expansion, public
-deployment and the participant sessions above remain separate outstanding gates.
+reader snapshots and bounded, reusable disk exports. The subsequent
+[tiled map increment](TILED_MAP.md) completed the bounded canary expansion and
+map integration. Public deployment and the participant sessions above remain
+separate outstanding gates. Successful browser checks do not close the human
+comprehension gate.
