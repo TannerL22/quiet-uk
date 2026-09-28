@@ -5,6 +5,10 @@ Implemented 25 September 2026. Scientific release remains
 acquisition evidence have not changed. This is a serving prerequisite for the
 planned tiled canary, not a new data release or a public-hosting milestone.
 
+The reader contract was updated on 27 September for the 450-raster Oxford–London
+release. Expanded-release measurements are in [the expansion report](OXFORD_LONDON_EXPANSION.md).
+The original regional measurements below remain historical results.
+
 ## Reader contract
 
 - `SourcePilot` remains a strict reader of the original release. Direct use still
@@ -21,10 +25,23 @@ planned tiled canary, not a new data release or a public-hosting milestone.
   timestamps instead of hashing entire TIFFs repeatedly. These guards catch
   accidental copy changes; they are **not** protection against malicious code
   running as the same OS user. OS account permissions remain the trust boundary.
-- At most 48 raster readers remain open. An LRU closes idle readers when needed;
+- At most 512 raster readers remain open by default (previously 48). An LRU closes idle readers when needed;
   each GDAL dataset is exclusively borrowed by one request. Busy readers are never
   evicted or concurrently used. Errors release the borrow. Integrity checks also
   bracket use of cached readers.
+- When the entire release fits within that cap, startup opens its raster metadata
+  once, without reading pixel arrays. This avoids file-open churn during browsing.
+  Larger releases retain bounded, lazy LRU loading; they need a new performance
+  gate rather than an assumption that these timings scale nationally.
+- File opens and eviction closes occur outside the shared pool lock. Reserved
+  slots count against the limit, prevent duplicate concurrent use, and keep
+  shutdown waiting until opens and borrows finish. Failed opens release slots.
+- Portable member names and paths are validated during copying. Every access
+  still resolves the cached path and checks its fingerprint, including after
+  reading. Replaced links/junctions and changed files are rejected.
+- A lookup reuses cell geometry only for identical CRS/affine grids within that
+  request. Each layer's raw value and mask are read independently. Returned cell
+  objects are independent, and no noise values or query answers are cached.
 
 ## Evidence downloads and lifecycle
 
@@ -83,7 +100,9 @@ The provisional p95 goals (<500 ms for points and <1.5 s for three places) pass 
 this regional workload. Python allocation figures include the streaming client
 but exclude native GDAL allocations; process RSS includes both and is a lifetime
 high-water mark, not additional export memory. Reader reuse increases retained
-native cache memory. The 48-reader cap bounds handles, not total process RAM.
+native cache memory. These original measurements used a 48-reader cap. The
+current 512-reader cap also bounds handles, not total process RAM; the larger
+working set's measured memory cost is recorded with the expanded benchmark.
 
 The initial implementation without reader reuse measured point p95 538 ms and
 comparison p95 647 ms. It overlapped briefly with tests, so it is diagnostic rather
