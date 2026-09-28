@@ -131,7 +131,7 @@ def test_tiled_lookup_boundaries_replay_and_http(tiled,monkeypatch):
     release.write_bundle(archive)
     with zipfile.ZipFile(archive) as bundle: bundle.extractall(portable)
     assert p.SourcePilot(portable).verify(reproduce=True)['verified_records']==45
-    server=ExplorerServer(0,None,Path(__file__).parents[1]/'explorer',pilot=release)
+    server=ExplorerServer(0,None,Path(__file__).parents[1]/'explorer',pilot=release.root)
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
     base=f'http://127.0.0.1:{server.server_port}'
     try:

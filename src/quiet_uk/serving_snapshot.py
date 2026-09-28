@@ -23,6 +23,17 @@ from .source_pilot import SourcePilot
 
 COPY_CHUNK = 1024 * 1024
 DEFAULT_MAX_READERS = 512
+SERVING_GDAL_CACHE_BYTES = 128 * 1024 * 1024
+
+
+def serving_environment():
+    """CLI process lifetime only: cap GDAL's global pixel cache, then restore it.
+
+    Do not enter/exit this per request: GDAL_CACHEMAX is process-global. Library
+    callers manage their own environment; a caller's smaller cap is respected.
+    """
+    current = rasterio.env.get_gdal_config('GDAL_CACHEMAX')
+    return rasterio.Env(GDAL_CACHEMAX=min(current, SERVING_GDAL_CACHE_BYTES))
 
 
 class RasterReaders:
@@ -130,9 +141,14 @@ class RegionalSnapshot(SourcePilot):
         root = Path(self._storage.name).resolve()/'release'
         root.mkdir()
         try:
-            manifest = copy.deepcopy(source.manifest)
+            if isinstance(source, (str, Path)):
+                source_root = Path(source).resolve()
+                manifest = SourcePilot.read_manifest(source_root)
+            else:
+                source_root = source.root
+                manifest = copy.deepcopy(source.manifest)
             for name, expected in manifest['files'].items():
-                original = member_path(source.root, name)
+                original = member_path(source_root, name)
                 target = member_path(root, name)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 digest = hashlib.sha256()
@@ -199,6 +215,11 @@ class RegionalSnapshot(SourcePilot):
             if fingerprint(path) != self._bundle_fingerprint:
                 raise CatalogueIntegrityError('Private evidence archive changed')
             return path
+
+    def write_bundle(self, output, *, compresslevel=1):
+        # Lossless DEFLATE level 1 reduces the initial download wait. Member
+        # contents/hashes are identical; ZIP container bytes and size may differ.
+        super().write_bundle(output, compresslevel=compresslevel)
 
     def close(self):
         self._closed = True

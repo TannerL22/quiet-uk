@@ -15,13 +15,14 @@ import sys
 import threading
 import time
 import tracemalloc
+import zipfile
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from rasterio.warp import transform
-from quiet_uk.source_pilot import SourcePilot
+from quiet_uk.serving_snapshot import serving_environment
 from quiet_uk.evidence_semantics import interpret
 from quiet_uk.explorer_server import ExplorerServer
 
@@ -87,14 +88,15 @@ def main():
                         'Python allocation peaks exclude native allocations; RSS is process lifetime high-water.',
                         'Installed bounded release only; results do not establish national scaling.']}
     start = time.perf_counter()
-    source = SourcePilot(args.pilot)
-    report['source_verification_seconds'] = round(time.perf_counter()-start, 3)
-    print('Source verified; preparing private snapshot', file=sys.stderr, flush=True)
+    print('Verifying bytes while preparing private snapshot', file=sys.stderr, flush=True)
+    server = ExplorerServer(0, None, ROOT/'explorer', pilot=args.pilot)
+    report['total_startup_seconds'] = round(time.perf_counter()-start, 3)
+    report['startup_strategy'] = 'verify_while_copying'
+    source = server.pilot
     report['release_id'] = source.manifest['release_id']
     report['source_bytes'] = sum((source.root/name).stat().st_size for name in source.manifest['files'])
-    start = time.perf_counter()
-    server = ExplorerServer(0, None, ROOT/'explorer', pilot=source)
-    report['snapshot_startup_seconds'] = round(time.perf_counter()-start, 3)
+    from rasterio.env import get_gdal_config
+    report['gdal_cache_max_bytes'] = get_gdal_config('GDAL_CACHEMAX')
     report['snapshot_process_peak_rss_bytes'] = peak_rss()
     print('Snapshot ready; measuring requests', file=sys.stderr, flush=True)
     worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()
@@ -204,6 +206,23 @@ def main():
             print('Integrity and image checks passed; measuring evidence exports', file=sys.stderr, flush=True)
             report['first_export'] = measured_memory(download)
             report['cached_export'] = measured_memory(download)
+            # Compression settings may change container bytes/size, never the
+            # evidence members. Verify the complete archive backing the HTTP
+            # downloads on disk, without retaining it all in client memory.
+            with zipfile.ZipFile(server.pilot.bundle_path()) as archive:
+                expected_names = {'manifest.json', *source.manifest['files']}
+                if set(archive.namelist()) != expected_names or len(archive.namelist()) != len(expected_names):
+                    raise RuntimeError('Archive membership changed')
+                if json.loads(archive.read('manifest.json')) != source.manifest:
+                    raise RuntimeError('Archive manifest changed')
+                for name, expected in source.manifest['files'].items():
+                    digest = hashlib.sha256()
+                    with archive.open(name) as member:
+                        while chunk := member.read(1024*1024):
+                            digest.update(chunk)
+                    if digest.hexdigest() != expected:
+                        raise RuntimeError('Archive member changed: '+name)
+                report['archive_members_verified'] = len(expected_names)
         report['private_disk_bytes'] = sum(p.stat().st_size for p in server.pilot.root.parent.rglob('*') if p.is_file())
         report['local_beta_latency_targets_met'] = report['point']['p95_ms'] < 500 and report['three_places']['p95_ms'] < 1500
     finally:
@@ -215,4 +234,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    with serving_environment():
+        main()

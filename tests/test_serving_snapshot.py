@@ -14,9 +14,53 @@ import pytest
 from quiet_uk import source_pilot as p
 from quiet_uk.catalogue import CatalogueIntegrityError
 from quiet_uk.explorer_server import ExplorerServer
-from quiet_uk.serving_snapshot import RegionalSnapshot, RasterReaders, member_path
+from quiet_uk.serving_snapshot import (RegionalSnapshot, RasterReaders, member_path,
+                                      serving_environment, SERVING_GDAL_CACHE_BYTES)
 from test_source_pilot import pilot, coords
 from test_evidence_semantics import interpreted
+
+
+@pytest.mark.parametrize('release_fixture', ['pilot', 'interpreted'])
+def test_path_startup_verifies_copy_without_a_source_hash_pass(request, release_fixture, monkeypatch):
+    source = request.getfixturevalue(release_fixture)
+    point = coords(source, col=2)
+    expected = source.lookup('heathrow', *point)
+    monkeypatch.setattr(p, 'file_hash', lambda *a: pytest.fail('Redundant source hash pass'))
+    with RegionalSnapshot(source.root) as snapshot:
+        assert snapshot.lookup('heathrow', *point) == expected
+        assert snapshot.manifest == source.manifest
+    assert not snapshot.root.parent.exists()
+
+
+def test_path_startup_rejects_corrupt_source_and_cleans_up(pilot, tmp_path):
+    (pilot.root/pilot.manifest['records'][0]['path']).write_bytes(b'corrupt')
+    cache = tmp_path/'cache'; cache.mkdir()
+    with pytest.raises(CatalogueIntegrityError, match='checksum'):
+        RegionalSnapshot(pilot.root, directory=cache)
+    assert list(cache.iterdir()) == []
+
+
+def test_path_startup_rejects_manifest_tampering_before_copy(pilot, tmp_path):
+    manifest = pilot.manifest
+    manifest['receiver_height_m'] = 1
+    (pilot.root/'manifest.json').write_bytes(p.json_bytes(manifest))
+    cache = tmp_path/'cache'; cache.mkdir()
+    with pytest.raises(CatalogueIntegrityError, match='manifest'):
+        RegionalSnapshot(pilot.root, directory=cache)
+    assert list(cache.iterdir()) == []
+
+
+def test_serving_cache_budget_respects_smaller_limits_and_restores_environment():
+    get_cache = lambda: p.rasterio.env.get_gdal_config('GDAL_CACHEMAX')
+    original = get_cache()
+    with serving_environment():
+        assert get_cache() == min(original, SERVING_GDAL_CACHE_BYTES)
+    assert get_cache() == original
+    with p.rasterio.Env(GDAL_CACHEMAX=16*1024*1024):
+        with serving_environment():
+            assert get_cache() == 16*1024*1024
+        assert get_cache() == 16*1024*1024
+    assert get_cache() == original
 
 
 @pytest.mark.parametrize('release_fixture', ['pilot', 'interpreted'])

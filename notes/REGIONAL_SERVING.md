@@ -17,6 +17,12 @@ The original regional measurements below remain historical results.
   manifest-listed file with a 1 MiB buffer and hashes the exact bytes copied.
   Manifest identity, parent lineage and evidence-contract validation still apply.
   Corrupt input aborts startup and removes the partial private copy.
+- The serving CLI supplies a release path directly. Manifest identity is checked
+  before copying, every file is hashed as it is copied, and the full manifest,
+  lineage and evidence-contract checks run on the private copy before readiness.
+  This avoids the former separate complete source hash pass. Direct `SourcePilot`
+  use remains strict; `read_manifest` validates only the header and is not an
+  independently verified dataset or a way to query unverified files.
 - HTTP requests read only the private copies, which are marked read-only.
   Source-folder replacement or editing has no effect on a running regional
   session. Restart explicitly to adopt a different release. Copies are not hard
@@ -42,6 +48,11 @@ The original regional measurements below remain historical results.
 - A lookup reuses cell geometry only for identical CRS/affine grids within that
   request. Each layer's raw value and mask are read independently. Returned cell
   objects are independent, and no noise values or query answers are cached.
+- The app and benchmark CLI hold a 128 MiB GDAL pixel-cache budget for their
+  process lifetime, respecting a smaller caller-provided limit and restoring the
+  previous configuration on exit. This is separate from the 512-reader handle cap
+  and is not a total process-RAM limit. Library callers manage their own GDAL
+  environment. The process-global setting is never changed per HTTP request.
 
 ## Evidence downloads and lifecycle
 
@@ -50,6 +61,10 @@ member while exporting it, and publishes the completed file by rename. Concurren
 requests share that archive. Failed writes remove partial output and may be retried;
 changed completed archives are rejected. ZIP member contents and the manifest are
 identical to the verified release. ZIP container metadata is not a release identity.
+Serving exports now use lossless DEFLATE level 1 to shorten the initial wait; the
+container may be larger, but member contents and hashes are unchanged. Direct
+`SourcePilot` exports retain the previous compression default. The full serving
+benchmark checks every archive member hash as well as HTTP transfer lengths.
 
 The server streams the ZIP in 1 MiB chunks instead of assembling a ZIP-sized byte
 array. Two download slots bound concurrent export/transfer buffers; excess requests
