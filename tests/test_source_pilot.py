@@ -90,6 +90,26 @@ def test_outside_is_distinct_from_unreported(pilot):
     assert all(o['status'] == 'outside_pilot' and o['raw_value'] is None and o['cell'] is None for o in obs)
 
 
+def test_lookup_geometry_matches_independent_rasters_and_is_not_shared(pilot):
+    for row, col in [(0, 2), (37, 91)]:
+        lon, lat = coords(pilot, row=row, col=col)
+        x, y = transform('EPSG:4326', 'EPSG:27700', [lon], [lat])
+        observations = pilot.lookup('heathrow', lon, lat)['observations']
+        for observation, record in zip(observations, pilot.manifest['records']):
+            with rasterio.open(pilot.root/record['path']) as ds:
+                raster_row, raster_col = ds.index(x[0], y[0])
+                assert (raster_row, raster_col) == (row, col)
+                corners = [ds.transform*(col+dx, row+dy)
+                           for dx, dy in [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
+                lons, lats = transform(ds.crs, 'EPSG:4326', *zip(*corners))
+                assert observation['cell'] == {
+                    'type': 'Polygon', 'coordinates': [list(map(list, zip(lons, lats)))]}
+        original = observations[1]['cell']['coordinates'][0][0][0]
+        observations[0]['cell']['coordinates'][0][0][0] = 999
+        assert observations[1]['cell']['coordinates'][0][0][0] == original
+        assert pilot.lookup('heathrow', lon, lat)['observations'][0]['cell']['coordinates'][0][0][0] == original
+
+
 @pytest.mark.parametrize('point', [(float('nan'),51),(-1,float('inf')),(181,51),(-1,91)])
 def test_invalid_coordinates_fail(pilot, point):
     with pytest.raises(ValueError): pilot.lookup('heathrow', *point)

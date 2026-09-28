@@ -599,6 +599,7 @@ class SourcePilot:
     def open_raster(self, name):
         return rasterio.open(self.verified_path(name))
 
+    @rasterio.env.ensure_env
     def lookup(self, site, lon, lat):
         if site not in self.manifest['sites'] or not np.isfinite([lon, lat]).all() or not (-180 <= lon <= 180 and -90 <= lat <= 90):
             raise ValueError('Choose a pilot site and finite longitude/latitude')
@@ -607,6 +608,10 @@ class SourcePilot:
         if projectable and not np.isfinite([x[0], y[0]]).all():
             raise ValueError('Coordinates cannot be projected into the source grid')
         observations = []
+        # Layers frequently share a native grid. Reuse geometry only within this
+        # request and only for the same CRS/affine; values and masks are still
+        # sampled independently from every verified source raster.
+        indices, cells = {}, {}
         records = [r for r in self.manifest['records'] if r['site'] == site]
         if self.manifest['schema_version'] == 3:
             owned = [r for r in records if owns_point(r['core_bounds'], x[0], y[0]) and projectable]
@@ -617,7 +622,10 @@ class SourcePilot:
         for record in records:
             product = self.manifest['products'][record['source']]
             with self.open_raster(record['path']) as ds:
-                row, col = ds.index(x[0], y[0]) if projectable else (-1, -1)
+                grid = (ds.crs, ds.transform)
+                if grid not in indices:
+                    indices[grid] = ds.index(x[0], y[0]) if projectable else (-1, -1)
+                row, col = indices[grid]
                 inside = (0 <= row < ds.height and 0 <= col < ds.width
                           and ('core_bounds' not in record or owns_point(record['core_bounds'], x[0], y[0])))
                 raw, value, cell = None, None, None
@@ -628,9 +636,11 @@ class SourcePilot:
                     cutoff = self.manifest.get('reporting_cutoff_db', {}).get(record['metric'], 35 if record['metric'] == 'Lnight' else 40)
                     status = 'reported_model_value' if raw != ds.nodata and raw >= cutoff else 'unreported'
                     value = raw if status == 'reported_model_value' else None
-                    pts = [ds.transform*(col+dx, row+dy) for dx, dy in ((0, 0), (1, 0), (1, 1), (0, 1), (0, 0))]
-                    lons, lats = transform(ds.crs, 'EPSG:4326', *zip(*pts))
-                    cell = {'type': 'Polygon', 'coordinates': [list(map(list, zip(lons, lats)))]}
+                    if grid not in cells:
+                        pts = [ds.transform*(col+dx, row+dy) for dx, dy in ((0, 0), (1, 0), (1, 1), (0, 1), (0, 0))]
+                        lons, lats = transform(ds.crs, 'EPSG:4326', *zip(*pts))
+                        cells[grid] = {'type': 'Polygon', 'coordinates': [list(map(list, zip(lons, lats)))]}
+                    cell = copy.deepcopy(cells[grid])
                 if self.manifest['schema_version'] >= 2:
                     masked = inside and not bool(ds.read_masks(1, window=rasterio.windows.Window(col, row, 1, 1))[0, 0])
                     evidence = interpret(raw, inside=inside, masked=masked)

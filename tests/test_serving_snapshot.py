@@ -14,7 +14,7 @@ import pytest
 from quiet_uk import source_pilot as p
 from quiet_uk.catalogue import CatalogueIntegrityError
 from quiet_uk.explorer_server import ExplorerServer
-from quiet_uk.serving_snapshot import RegionalSnapshot, member_path
+from quiet_uk.serving_snapshot import RegionalSnapshot, RasterReaders, member_path
 from test_source_pilot import pilot, coords
 from test_evidence_semantics import interpreted
 
@@ -30,6 +30,7 @@ def test_snapshot_preserves_evidence_without_rehashing(request, release_fixture,
         def no_hash(*args):
             pytest.fail('Warm requests must not hash the release files')
         monkeypatch.setattr(p, 'file_hash', no_hash)
+        monkeypatch.setattr(p.rasterio, 'open', lambda *a, **k: pytest.fail('Warm lookup reopened a raster'))
         # Both the files and original in-memory manifest are independent.
         (source.root/source.manifest['records'][0]['path']).write_bytes(b'changed')
         source.manifest['sites'].clear()
@@ -68,8 +69,8 @@ def test_concurrent_lookups_with_eviction_bound_open_readers(pilot, monkeypatch)
     active, peak = set(), []
     guard = threading.Lock()
     class Tracked:
-        def __init__(self, path):
-            self.reader = real_open(path)
+        def __init__(self, path, **kwargs):
+            self.reader = real_open(path, **kwargs)
             with guard:
                 active.add(id(self)); peak.append(len(active))
         def __getattr__(self, name):
@@ -80,11 +81,36 @@ def test_concurrent_lookups_with_eviction_bound_open_readers(pilot, monkeypatch)
                 active.discard(id(self))
     monkeypatch.setattr(p.rasterio, 'open', Tracked)
     with RegionalSnapshot(pilot, max_readers=2) as snapshot:
+        # A release larger than the configured cap must not churn through a
+        # futile startup warm-up; eviction still bounds actual open handles.
+        assert not snapshot._readers._entries
         with ThreadPoolExecutor(max_workers=5) as pool:
             results = list(pool.map(lambda i: snapshot.lookup('heathrow', *points[i % 4]), range(20)))
         assert results == [expected[i % 4] for i in range(20)]
         assert max(peak) <= 2
     assert not active
+
+
+def test_cached_member_path_still_rejects_replaced_symlink(pilot, tmp_path):
+    # Keep this file unopened: Windows itself forbids replacing an open raster.
+    # This test exercises the cached-path guard, not the OS file-sharing lock.
+    with RegionalSnapshot(pilot, max_readers=1) as snapshot:
+        name = snapshot.manifest['records'][0]['path']
+        private = snapshot.verified_path(name)
+        moved = tmp_path/'moved-raster.tif'
+        private.chmod(0o600)
+        private.replace(moved)
+        try:
+            try:
+                private.symlink_to(moved)
+            except OSError:
+                pytest.skip('Creating symbolic links requires platform privileges')
+            with pytest.raises(CatalogueIntegrityError, match='path changed'):
+                snapshot.verified_path(name)
+        finally:
+            if private.is_symlink():
+                private.unlink()
+            moved.replace(private)
 
 
 def test_reader_is_released_on_lookup_error(pilot):
@@ -96,6 +122,54 @@ def test_reader_is_released_on_lookup_error(pilot):
         with snapshot.open_raster(name) as reader:
             assert not reader.closed
     assert reader.closed
+
+
+def test_slow_open_does_not_block_an_independent_reader_and_shutdown_waits(monkeypatch):
+    readers=RasterReaders(2)
+    entered, release, other_done, closed = (threading.Event() for _ in range(4))
+    handles=[]
+    class Reader:
+        def __init__(self): self.closed=False
+        def close(self): self.closed=True
+    def opening(path, **kwargs):
+        if path=='slow':
+            entered.set()
+            assert release.wait(10)
+        result=Reader(); handles.append(result); return result
+    monkeypatch.setattr(p.rasterio,'open',opening)
+    def query(path):
+        with readers.open(path) as reader:
+            assert not reader.closed
+        if path=='other': other_done.set()
+    def shutdown():
+        readers.close(); closed.set()
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        slow=pool.submit(query,'slow')
+        try:
+            assert entered.wait(5)
+            other=pool.submit(query,'other')
+            assert other_done.wait(5), 'Unrelated open was blocked by a slow raster'
+            closing=pool.submit(shutdown)
+            assert not closed.wait(.1)
+        finally:
+            release.set()
+        slow.result(timeout=10); other.result(timeout=10); closing.result(timeout=10)
+    assert all(reader.closed for reader in handles)
+
+
+def test_failed_open_releases_reserved_capacity(monkeypatch):
+    readers=RasterReaders(1)
+    class Reader:
+        def close(self): pass
+    def opening(path, **kwargs):
+        if path=='broken': raise OSError('Unreadable raster')
+        return Reader()
+    monkeypatch.setattr(p.rasterio,'open',opening)
+    with pytest.raises(OSError,match='Unreadable raster'):
+        with readers.open('broken'): pass
+    with readers.open('valid') as reader:
+        assert isinstance(reader,Reader)
+    readers.close()
 
 
 def test_failed_export_can_retry_without_reusing_partial_bytes(pilot, monkeypatch):

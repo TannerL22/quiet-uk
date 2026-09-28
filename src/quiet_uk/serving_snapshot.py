@@ -22,6 +22,7 @@ from .explorer import json_bytes
 from .source_pilot import SourcePilot
 
 COPY_CHUNK = 1024 * 1024
+DEFAULT_MAX_READERS = 512
 
 
 class RasterReaders:
@@ -37,6 +38,7 @@ class RasterReaders:
 
     @contextmanager
     def open(self, path):
+        opening, evicted = False, None
         with self._condition:
             while True:
                 if self._closed:
@@ -49,13 +51,32 @@ class RasterReaders:
                     if len(self._entries) >= self.limit:
                         idle = next((key for key, (_, busy) in self._entries.items() if not busy), None)
                         if idle is not None:
-                            self._entries.pop(idle)[0].close()
+                            evicted = self._entries.pop(idle)[0]
                     if len(self._entries) < self.limit:
-                        reader = rasterio.open(path)
+                        # Reserve a slot before releasing the lock. Other paths
+                        # can open concurrently; this path remains exclusively
+                        # borrowed, and shutdown waits for the reservation too.
+                        reader, opening = None, True
                         break
                 self._condition.wait()
             self._entries[path] = (reader, True)
             self._entries.move_to_end(path)
+        if opening:
+            try:
+                # Close the displaced reader before opening its replacement so
+                # the physical handle count never exceeds the reserved slots.
+                if evicted is not None:
+                    evicted.close()
+                # These are verified provider GeoTIFF responses, even when the
+                # retained HTTP body has a .bin filename. Avoid driver probing.
+                reader = rasterio.open(path, driver='GTiff')
+            except BaseException:
+                with self._condition:
+                    del self._entries[path]
+                    self._condition.notify_all()
+                raise
+            with self._condition:
+                self._entries[path] = (reader, True)
         try:
             yield reader
         finally:
@@ -98,10 +119,11 @@ def member_path(root, name):
 class RegionalSnapshot(SourcePilot):
     """Hash bytes while copying once; never read the acquisition folder again."""
 
-    def __init__(self, source, *, directory=None, max_readers=48):
+    def __init__(self, source, *, directory=None, max_readers=DEFAULT_MAX_READERS):
         self._readers = RasterReaders(max_readers)
         self._storage = tempfile.TemporaryDirectory(prefix='quiet-uk-serving-', dir=directory)
         self._fingerprints = {}
+        self._member_paths = {}
         self._bundle_lock = threading.Lock()
         self._bundle_fingerprint = None
         self._closed = False
@@ -123,10 +145,19 @@ class RegionalSnapshot(SourcePilot):
                     raise CatalogueIntegrityError('Snapshot checksum mismatch: '+name)
                 target.chmod(stat.S_IREAD)
                 self._fingerprints[name] = fingerprint(target)
+                self._member_paths[name] = target
             (root/'manifest.json').write_bytes(json_bytes(manifest))
             # Retain manifest, lineage and evidence-contract validation. The
             # overridden verified_path uses only the copies just hashed above.
             super().__init__(root)
+            # Open metadata once when this bounded release fits in the cache.
+            # Do not read pixels or churn through a release larger than the cap.
+            # Startup timing includes this cost; queries still verify each file.
+            raster_names = sorted({r['path'] for r in self.records.values()})
+            if len(raster_names) <= max_readers:
+                for name in raster_names:
+                    with self.open_raster(name):
+                        pass
         except BaseException:
             self.close()
             raise
@@ -134,7 +165,12 @@ class RegionalSnapshot(SourcePilot):
     def verified_path(self, name):
         if self._closed or name not in self.manifest['files']:
             raise CatalogueIntegrityError('Unknown or closed snapshot member')
-        path = member_path(self.root, name)
+        # Portable-name validation and path construction happened during the
+        # verified copy. Still resolve on every access to detect replaced links
+        # or junctions, and still check the file fingerprint before/after use.
+        path = self._member_paths[name]
+        if path.resolve(strict=True) != path:
+            raise CatalogueIntegrityError('Private snapshot path changed: '+name)
         if fingerprint(path) != self._fingerprints[name]:
             raise CatalogueIntegrityError('Private snapshot file changed: '+name)
         return path
