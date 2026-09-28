@@ -1,6 +1,6 @@
 # Quiet UK active roadmap
 
-Updated 27 September 2026. This supersedes the delivery ordering in older reviews;
+Updated 28 September 2026. This supersedes the delivery ordering in older reviews;
 those documents remain historical evidence.
 
 **Review-adjusted plan:** see [Review response and delivery plan](REVIEW_RESPONSE_AND_DELIVERY_PLAN.md).
@@ -105,6 +105,19 @@ also highlight missing answers and an expectation of overall sound information.
 Aircraft discoverability remains unresolved. The five-person gate was not passed;
 it is deferred and does not block this expansion.
 
+**28 September delivery update:** the Oxford–London acquisition and map are now
+constructed and reproduced offline: 5,000 km², 450 layers, 765 gap-free display
+joins, and unchanged western images. The initial serving benchmark missed both
+latency targets. The profiled fix removes file-open contention and warms a bounded
+512-reader cache. The full repeat now passes: point p95 **147.11 ms**, comparison
+p95 **217.70 ms**, with all boundary/image/export and cleanup checks intact.
+Measured peak RSS increased to **1.38 GiB**; verification plus startup still takes
+about **97 seconds**. All four clean-checkout CI jobs passed. The existing launcher
+and browser smoke check now deliver the expanded map, including coordinate
+inspection and road/aircraft switching. This bounded local delivery is complete;
+reduce startup and retained GDAL cache memory before another large expansion.
+See [the measured expansion report](OXFORD_LONDON_EXPANSION.md).
+
 The proposed next bounded footprint extends the existing square eastward into a
 100 × 50 km Oxford–London rectangle (BNG edges 445005, 165005, 545005, 215005),
 subject to checking provider envelopes and the retained Heathrow overlap. Target
@@ -115,7 +128,8 @@ generalise them to retain the sealed western tiles and acquire only the new east
 tiles, with explicit budgets and cross-release edge checks. Reuse evidence instead
 of re-downloading existing coverage. Publish a new immutable release only after
 grid, overlap, display and serving checks pass, then install it in the launcher.
-This footprint is a next implementation target, not acquired or verified coverage.
+The footprint is now acquired, verified and delivered; the serving and browser
+results above supersede this original implementation sequence.
 
 Expanding geography will not fill Unknown cells inside existing coverage. Track
 that evidence gap separately: assess provider domain/encoding evidence and credible
