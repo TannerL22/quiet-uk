@@ -73,6 +73,7 @@ def main():
     parser.add_argument('--output', type=Path, default=ROOT/'artifacts/regional-serving-benchmark.json')
     parser.add_argument('--requests', type=int, default=200)
     parser.add_argument('--workers', type=int, default=5)
+    parser.add_argument('--interactive-only', action='store_true', help='Diagnostic timing only; omit integrity, image and export checks')
     args = parser.parse_args()
     if args.requests < 200 or not 1 <= args.workers <= 20:
         parser.error('Use at least 200 requests and 1–20 workers')
@@ -88,11 +89,14 @@ def main():
     start = time.perf_counter()
     source = SourcePilot(args.pilot)
     report['source_verification_seconds'] = round(time.perf_counter()-start, 3)
+    print('Source verified; preparing private snapshot', file=sys.stderr, flush=True)
     report['release_id'] = source.manifest['release_id']
     report['source_bytes'] = sum((source.root/name).stat().st_size for name in source.manifest['files'])
     start = time.perf_counter()
     server = ExplorerServer(0, None, ROOT/'explorer', pilot=source)
     report['snapshot_startup_seconds'] = round(time.perf_counter()-start, 3)
+    report['snapshot_process_peak_rss_bytes'] = peak_rss()
+    print('Snapshot ready; measuring requests', file=sys.stderr, flush=True)
     worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()
     base = f'http://127.0.0.1:{server.server_port}'
     rng = random.Random(20260925)
@@ -146,8 +150,13 @@ def main():
                         window = rasterio.windows.Window(col,row,1,1)
                         raw = float(ds.read(1,window=window)[0,0])
                         masked = not bool(ds.read_masks(1,window=window)[0,0])
+                        corners = [ds.transform*(col+dx,row+dy) for dx,dy in ((0,0),(1,0),(1,1),(0,1),(0,0))]
+                        lons,lats = transform(ds.crs,'EPSG:4326',*zip(*corners))
+                        cell = {'type':'Polygon','coordinates':[list(map(list,zip(lons,lats)))]}
                     if obs['raw_value'] != raw or obs['status'] != interpret(raw,inside=True,masked=masked)['status']:
                         raise RuntimeError('Boundary evidence differs from source')
+                    if obs['cell'] != cell:
+                        raise RuntimeError('Boundary cell geometry differs from source')
                     count += 1
         return count
     def display_request(record):
@@ -179,13 +188,22 @@ def main():
             with ThreadPoolExecutor(max_workers=args.workers) as pool:
                 report[name] = summary(list(pool.map(lambda i: query(i, comparison), range(args.requests))))
         report['reader_cache_entries'] = len(server.pilot._readers._entries)
-        if source.manifest['schema_version'] >= 2:
-            report['boundary_observations_checked'] = check_boundaries()
-            report['outside_observations_checked'] = check_outside()
-        with ThreadPoolExecutor(max_workers=args.workers) as pool:
-            report['display_http'] = summary(list(pool.map(display_request, source.records.values())))
-        report['first_export'] = measured_memory(download)
-        report['cached_export'] = measured_memory(download)
+        report['reader_cache_limit'] = server.pilot._readers.limit
+        report['interactive_process_peak_rss_bytes'] = peak_rss()
+        if report['reader_cache_entries'] > report['reader_cache_limit']:
+            raise RuntimeError('Reader cache exceeded its configured limit')
+        print(f'Request p95: points {report["point"]["p95_ms"]} ms; comparisons {report["three_places"]["p95_ms"]} ms', file=sys.stderr, flush=True)
+        if args.interactive_only:
+            report['checks_omitted'] = ['boundary', 'outside', 'display_http', 'evidence_export']
+        else:
+            if source.manifest['schema_version'] >= 2:
+                report['boundary_observations_checked'] = check_boundaries()
+                report['outside_observations_checked'] = check_outside()
+            with ThreadPoolExecutor(max_workers=args.workers) as pool:
+                report['display_http'] = summary(list(pool.map(display_request, source.records.values())))
+            print('Integrity and image checks passed; measuring evidence exports', file=sys.stderr, flush=True)
+            report['first_export'] = measured_memory(download)
+            report['cached_export'] = measured_memory(download)
         report['private_disk_bytes'] = sum(p.stat().st_size for p in server.pilot.root.parent.rglob('*') if p.is_file())
         report['local_beta_latency_targets_met'] = report['point']['p95_ms'] < 500 and report['three_places']['p95_ms'] < 1500
     finally:
