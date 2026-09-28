@@ -211,7 +211,59 @@ the unspecified-period notice. Returning to all-area coverage worked; no browser
 console errors were captured. This is an automated smoke check, not another human
 usability study or a new Firefox compatibility claim.
 
-The expanded local delivery and serving gate are complete. Next performance work
-should reduce verification/startup and retained GDAL cache memory before another
-large geographic expansion; acquisition and scientific-evidence limitations remain
-separate from this serving fix.
+The expanded local delivery and serving gate are complete. The next performance
+increment addressed verification/startup and retained GDAL cache memory, as below;
+acquisition and scientific-evidence limitations remain separate from these fixes.
+
+### Startup, memory and export increment, 28 September 2026
+
+Implementation `e6bbc76` removes the redundant source hash pass in the serving CLI.
+It checks manifest identity, hashes every byte while copying, then validates the
+private copy's lineage and evidence contract before exposing the server. Direct
+`SourcePilot` use retains its strict checks. The app and benchmark CLI cap GDAL's
+pixel cache at 128 MiB for their process lifetime, separately from the 512-reader
+limit. Serving ZIPs use lossless DEFLATE level 1; raw members are unchanged.
+
+The same full five-client, 200-point/200-comparison workload, across all 50 cores,
+passed against the unchanged `pilot-ad6d31f2da1b0a754135` release:
+
+| Measurement | Previous serving fix | Resource increment |
+|---|---:|---:|
+| Total verified startup | 96.590 s (two phases) | 47.416 s (one verified copy) |
+| Point median / p95 | 89.45 / 147.11 ms | 98.62 / 140.25 ms |
+| Comparison median / p95 | 170.59 / 217.70 ms | 201.14 / 238.12 ms |
+| Image HTTP p95 | 17.23 ms | 14.88 ms |
+| Interactive peak RSS | 1,324,093,440 bytes | 604,844,032 bytes |
+| Peak RSS recorded through export | 1,480,028,160 bytes | 818,438,144 bytes |
+| First / cached export | 120.035 / 0.929 s | 69.657 / 2.177 s |
+| Evidence ZIP size | 509,466,548 bytes | 741,967,010 bytes |
+| First-export Python allocation peak | 11,265,400 bytes | 11,265,400 bytes |
+| Private snapshot plus archive disk use | 5,904,219,505 bytes | 6,136,719,967 bytes |
+
+The tradeoff is a larger ZIP and longer cached transfer, in exchange for a shorter
+first-export wait. The 128 MiB GDAL budget is not total RAM: the measured process
+still reaches about 781 MiB through the full workload. Both latency targets remain
+met. All 3,600 boundary observations and polygons, 36 outside observations, 450
+image hashes and cleanup passed. The benchmark now also decompresses and verifies
+every archive member: **2,448 including the manifest**, with exact published hashes.
+This added archive audit is outside the timed export phases.
+
+Reports: `artifacts/oxford_london_serving_resources.json` and its `.log` companion.
+The nine-raster compression diagnostic is retained in
+`artifacts/serving_export_compression_profile.json`. As before, OS caches were not
+flushed and these separate local runs do not isolate every environmental effect.
+The app and tests were stopped during the full benchmark. Local targeted checks
+passed 59 source/serving/tiled tests (one symlink-privilege skip) and all five CLI
+tests. No acquisition, provider encoding, missing-value meaning or noise estimate
+changed.
+
+Further expansion must measure behaviour beyond the 512-reader working set rather
+than assume the current warmed-reader timings scale nationally. That remains a
+separate scaling checkpoint, not an unfinished part of this bounded resource fix.
+
+All four Windows/Linux, Python 3.12/3.14 clean-checkout jobs passed for `e6bbc76`:
+[CI results](https://github.com/TannerL22/quiet-uk/actions/runs/36469407333), retained
+in `artifacts/oxford_london_serving_resources_ci.json`. The one-click launcher was
+restarted successfully; the browser loaded the same 5,000 km² release and a
+54.3 dB(A) road Lden point without captured console errors. The local app is left
+running on port 8766. This completes the startup/cache/export performance increment.

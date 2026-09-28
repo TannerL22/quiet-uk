@@ -109,13 +109,16 @@ it is deferred and does not block this expansion.
 constructed and reproduced offline: 5,000 km², 450 layers, 765 gap-free display
 joins, and unchanged western images. The initial serving benchmark missed both
 latency targets. The profiled fix removes file-open contention and warms a bounded
-512-reader cache. The full repeat now passes: point p95 **147.11 ms**, comparison
-p95 **217.70 ms**, with all boundary/image/export and cleanup checks intact.
-Measured peak RSS increased to **1.38 GiB**; verification plus startup still takes
-about **97 seconds**. All four clean-checkout CI jobs passed. The existing launcher
-and browser smoke check now deliver the expanded map, including coordinate
-inspection and road/aircraft switching. This bounded local delivery is complete;
-reduce startup and retained GDAL cache memory before another large expansion.
+512-reader cache. The subsequent resource increment verifies bytes once while
+copying and caps the GDAL pixel cache at 128 MiB. The latest full benchmark passes:
+point p95 **140.25 ms**, comparison p95 **238.12 ms**, verified startup **47.416 s**,
+and peak RSS through export **781 MiB**. First export fell to **69.657 s**, with a
+larger 742 MB ZIP; all 2,448 archive members verify exactly. Boundary, image and
+cleanup checks remain intact. All four clean-checkout CI jobs passed, and the
+existing launcher and browser smoke check deliver the expanded map. This bounded
+local delivery and resource increment are complete. Before a larger expansion,
+measure serving beyond the 512-reader working set instead of assuming these
+timings scale nationally.
 See [the measured expansion report](OXFORD_LONDON_EXPANSION.md).
 
 The proposed next bounded footprint extends the existing square eastward into a
