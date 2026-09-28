@@ -538,15 +538,21 @@ def owns_point(bounds, x, y):
 
 
 class SourcePilot:
+    @staticmethod
+    def read_manifest(root):
+        """Validate the manifest identity; this alone does not verify its files."""
+        manifest = json.loads((Path(root)/'manifest.json').read_text('utf-8'))
+        base = {k: v for k, v in manifest.items() if k != 'release_id'}
+        expected = 'pilot-'+hashlib.sha256(json_bytes(base)).hexdigest()[:20]
+        if manifest.get('schema_version') not in (1, 2, 3) or manifest['release_id'] != expected:
+            raise CatalogueIntegrityError('Pilot manifest checksum/schema mismatch')
+        if manifest['schema_version'] >= 2 and manifest.get('evidence_contract') != CONTRACT:
+            raise CatalogueIntegrityError('Unsupported evidence contract')
+        return manifest
+
     def __init__(self, root):
         self.root = Path(root).resolve()
-        self.manifest = json.loads((self.root/'manifest.json').read_text('utf-8'))
-        base = {k: v for k, v in self.manifest.items() if k != 'release_id'}
-        expected = 'pilot-'+hashlib.sha256(json_bytes(base)).hexdigest()[:20]
-        if self.manifest.get('schema_version') not in (1, 2, 3) or self.manifest['release_id'] != expected:
-            raise CatalogueIntegrityError('Pilot manifest checksum/schema mismatch')
-        if self.manifest['schema_version'] >= 2 and self.manifest.get('evidence_contract') != CONTRACT:
-            raise CatalogueIntegrityError('Unsupported evidence contract')
+        self.manifest = self.read_manifest(self.root)
         self.records = {r['id']: r for r in self.manifest['records']}
         for name in self.manifest['files']:
             self.verified_path(name)
@@ -703,9 +709,9 @@ class SourcePilot:
         self.write_bundle(output)
         return output.getvalue()
 
-    def write_bundle(self, output):
+    def write_bundle(self, output, *, compresslevel=None):
         """Write a portable archive to a path or file, with bounded file buffers."""
-        with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:
+        with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=compresslevel) as bundle:
             bundle.writestr('manifest.json', json_bytes(self.manifest))
             for name in self.manifest['files']:
                 digest = hashlib.sha256()

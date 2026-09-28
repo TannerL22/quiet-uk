@@ -64,7 +64,11 @@ def test_cli_starts_without_national_files(pilot, tmp_path, monkeypatch, regiona
         server_port = 8766
         def __init__(self, port, explorer, assets, search, pilot):
             assert explorer is None
-            calls.append(pilot.manifest['release_id'])
+            from quiet_uk.serving_snapshot import RegionalSnapshot
+            # The CLI delegates verification to the private-copy constructor.
+            assert isinstance(pilot, Path)
+            with RegionalSnapshot(pilot) as snapshot:
+                calls.append(snapshot.manifest['release_id'])
         def serve_forever(self): pass
         def server_close(self): pass
     monkeypatch.setattr(command, 'ExplorerServer', Server)

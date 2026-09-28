@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from quiet_uk.explorer import Explorer, publish_display
 from quiet_uk.explorer_server import ExplorerServer, PlaceSearch
-from quiet_uk.source_pilot import SourcePilot
+from quiet_uk.serving_snapshot import serving_environment
 
 
 def main():
@@ -42,7 +42,9 @@ def main():
         explorer = Explorer(args.display, args.catalogue, args.tiles, args.mask)
         print('Display verified:', explorer.manifest['release_id'])
         return
-    pilot = SourcePilot(args.pilot) if (args.pilot/'manifest.json').exists() else None
+    # The server verifies bytes while copying its private snapshot. Avoid a
+    # separate complete source hash pass before that same verified copy.
+    pilot = args.pilot if (args.pilot/'manifest.json').exists() else None
     if args.regional_only and pilot is None:
         parser.error('Regional evidence is missing. Supply --pilot PATH to an extracted regional bundle.')
     explorer = None
@@ -62,4 +64,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    with serving_environment():
+        main()
