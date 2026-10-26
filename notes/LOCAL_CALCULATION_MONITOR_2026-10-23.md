@@ -48,8 +48,11 @@ worker if any single road raised an unexpected error.
   checks, without any acoustics, which roads the model must withhold because
   of a facade at one of their first coordinates (for example a facade narrower
   than the assumed view width). The monitor uses its result to order work and
-  to skip calculating coordinates past a road's certain hold. Checked against
-  saved roads, every predicted hold was withheld by the engine.
+  to skip calculating coordinates past a road's certain hold. On a sample of
+  12 saved roads, all 6 predicted holds were roads the engine withheld; run it
+  with `--include-completed` to repeat that check across every saved road.
+  `--max-checks N` bounds the cost per road; the hold count is then a lower
+  bound, since a narrow facade may be visible from only a short stretch.
 
 ## Memory and workers
 
