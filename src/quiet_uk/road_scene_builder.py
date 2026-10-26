@@ -44,11 +44,22 @@ class NativeTerrain:
         return dict(row=row,column=col,terrain_odn_m=value if known else None,state='reported' if known else 'nodata')
 
     def intervals(self, a, b):
-        result=[]
-        for cell in native_intervals(a,b,self.bounds,self.resolution):
-            sample=self.sample([cell['easting'],cell['northing']])
-            result.append([cell['start_m'],cell['end_m'],sample['row'],sample['column'],sample['terrain_odn_m']])
-        return result
+        """sample() for every crossed cell at once; the same float operations per cell."""
+        cells=native_intervals(a,b,self.bounds,self.resolution)
+        if not cells:return []
+        w,s,e,n=self.bounds
+        x=np.array([c['easting'] for c in cells],dtype=float);y=np.array([c['northing'] for c in cells],dtype=float)
+        inside=(w<=x)&(x<e)&(s<y)&(y<=n)
+        rows=np.zeros(len(cells),dtype=np.int64);cols=np.zeros(len(cells),dtype=np.int64)
+        rows[inside]=np.floor((n-y[inside])/self.resolution);cols[inside]=np.floor((x[inside]-w)/self.resolution)
+        values=self.values[rows[inside],cols[inside]].astype(float)
+        known=self.mask[rows[inside],cols[inside]].astype(bool)&np.isfinite(values)
+        heights=[None]*len(cells);indexes=np.flatnonzero(inside)
+        for i,value,ok in zip(indexes.tolist(),values.tolist(),known.tolist()):
+            if ok:heights[i]=value
+        rows,cols,inside=rows.tolist(),cols.tolist(),inside.tolist()
+        return [[c['start_m'],c['end_m'],rows[i] if inside[i] else None,cols[i] if inside[i] else None,heights[i]]
+                for i,c in enumerate(cells)]
 
 
 def segment_road(link_id, geometry, *, maximum_length_m=25.):

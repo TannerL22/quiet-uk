@@ -3,6 +3,11 @@
 Existing acoustic kernels and receipts are unchanged. This is an offline finite
 path model, not all-road/all-source sound. Closed observation chunks and completed
 roads survive restarts; resume requires exactly the same code, inputs and policy.
+
+v5: the run pins its engine import closure, not every repository file. Changed
+closure files need an identical-replay receipt from script 121 against v4.
+Cached observations are held as compact JSON text to bound worker memory.
+Scheduling (workers, pause/stop, memory) is scripts/calculation_monitor.py.
 """
 import argparse
 from collections import Counter
@@ -10,7 +15,6 @@ from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 import csv
 import gzip
 import hashlib
-import importlib.util
 from importlib.metadata import version
 import json
 import math
@@ -25,28 +29,25 @@ from shapely.geometry import Point, Polygon, box
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
+from quiet_uk import generations as helper
+from quiet_uk import road_calculation_inputs as prior
+from quiet_uk import run_identity
 from quiet_uk.adaptive_road_integration import DEFAULTS, geometry_breakpoints, integrate_adaptive
 from quiet_uk.conditional_reflection_domain import SCOPE, reflection_cases
 from quiet_uk.conditional_road_propagation import receiver_metrics, road_guard, source_joint_power
 from quiet_uk.conditional_road_reflections import road_point_energy
-from quiet_uk.explorer import file_hash, json_bytes
+from quiet_uk.digests import file_hash, json_bytes
 from quiet_uk.physical_scene_assumptions import assumption_cases
 from quiet_uk.road_scene_builder import NativeTerrain, RoadSceneBuilder, parts
 
 RECEIPT=ROOT/'artifacts/road_reflection_connection_validation_v1.json'
+EQUIVALENCE=ROOT/'artifacts/engine_equivalence_v5.json'
 PHYSICAL=next(c for c in assumption_cases() if c['case_id']=='combined_reference')
 FACADE=next(c for c in reflection_cases() if c['case_id']=='reference_facade')
 RECEIVER=[507000.,179000.]
 RUN={}
 
 
-def module(name,filename):
-    spec=importlib.util.spec_from_file_location(name,ROOT/'scripts'/filename)
-    result=importlib.util.module_from_spec(spec);sys.modules[name]=result;spec.loader.exec_module(result);return result
-
-
-prior=module('real_reflection_direct_inputs','89_integrate_conditional_roads.py')
-helper=prior.helper
 read=lambda p:json.loads(Path(p).read_bytes())
 
 
@@ -57,16 +58,31 @@ def plain(value):
     return value
 
 
+def array_list(value):
+    """json default: the same output as plain(), without copying every node first."""
+    if isinstance(value,np.ndarray):return value.tolist()
+    raise TypeError(f'Not JSON serialisable: {type(value).__name__}')
+
+
 def atomic_json(path,value):
     path=Path(path);tmp=path.with_name(path.name+'.writing')
     tmp.write_bytes(json_bytes(plain(value)));os.replace(tmp,path)
 
 
-def guard():
+def equivalence():
+    return read(EQUIVALENCE) if EQUIVALENCE.exists() else None
+
+
+def code_identity():
+    return run_identity.import_closure(ROOT,Path(__file__))
+
+
+def guard(codes):
+    """Every file the engine runs is validated, or replayed identically against v4."""
     receipt=read(RECEIPT)
     assert receipt['status']=='passed_two_bounded_road_reflection_validation_blocks'
-    for name,sha in receipt['code_sha256'].items():
-        if file_hash(ROOT/name)!=sha:raise ValueError('Validated code changed: '+name)
+    unaccepted=run_identity.unaccepted_files(codes,receipt['code_sha256'],equivalence())
+    if unaccepted:raise ValueError('Engine code is neither validated nor shown identical (script 121): '+', '.join(unaccepted))
     ledger=receipt['unchanged_direct_ledger']
     assert file_hash(ROOT/ledger['path'])==ledger['sha256']
     return receipt
@@ -231,8 +247,16 @@ def reflection_partitions(source,receiver,builder,partition):
                 reflection_terrain_and_acoustic_transition_partition_complete=False)
 
 
+def text(value):
+    return json.dumps(value,separators=(',',':'),allow_nan=False)
+
+
 class PointJournal:
-    """Exact-XY memoization; partial final JSON lines never become observations."""
+    """Exact-XY memoization; partial final JSON lines never become observations.
+
+    Values are cached as their compact JSON text, about a third of the memory of
+    the decoded dicts; value() decodes one on use.
+    """
     def __init__(self,directory,fingerprint):
         self.directory=Path(directory);self.directory.mkdir(parents=True,exist_ok=True)
         self.fingerprint=fingerprint;self.cache={};self.pending=[];self.sequence=0
@@ -255,15 +279,17 @@ class PointJournal:
 
     def restore(self,record):
         assert record['fingerprint']==self.fingerprint
-        key=self.key(record['xy_bng']);value=record['value']
+        key=self.key(record['xy_bng']);value=text(record['value'])
         if key in self.cache:assert self.cache[key]==value,'Conflicting cached observation'
         else:self.cache[key]=value
 
+    def value(self,key):return json.loads(self.cache[key])
+
     def store(self,xy,value):
         value=plain(value);record=dict(fingerprint=self.fingerprint,xy_bng=list(xy),value=value)
-        key=self.key(xy)
-        if key in self.cache:assert self.cache[key]==value;return
-        self.cache[key]=value;self.pending.append(record)
+        key=self.key(xy);encoded=text(value)
+        if key in self.cache:assert self.cache[key]==encoded;return
+        self.cache[key]=encoded;self.pending.append(record)
         self.stream.write((json.dumps(record,separators=(',',':'),allow_nan=False)+'\n').encode());self.stream.flush()
         if len(self.pending)>=100:self.rotate()
 
@@ -377,7 +403,7 @@ def compute(source):
     def evaluate(xy):
         nonlocal new,reused
         key=journal.key(xy)
-        if key in journal.cache:reused+=1;return journal.cache[key]
+        if key in journal.cache:reused+=1;return journal.value(key)
         prepared=None
         try:
             prepared=s['builder'].prepare_point(xy,RECEIVER,reflections=True)
@@ -416,7 +442,7 @@ def compute(source):
             status='conditional_selected_path_component_numerical_diagnostic_met' if primary['diagnostic_tolerance_met'] else 'withheld_numerical_or_physical_support')
         nodes=primary.pop('evaluations')
         with gzip.open(directory/'primary_nodes.json.gz','wt',encoding='utf-8',compresslevel=1) as stream:
-            json.dump(plain(nodes),stream,separators=(',',':'),allow_nan=False)
+            json.dump(nodes,stream,separators=(',',':'),allow_nan=False,default=array_list)
         atomic_json(directory/'primary.json',primary)
         if not primary['diagnostic_tolerance_met']:
             return finish(dict(status='withheld_primary_support_or_numerics',reasons=sorted(primary['reason_counts']) or [primary['termination']],
@@ -439,7 +465,7 @@ def compute(source):
                 if node['status']=='withheld':reasons.extend(node['reasons']);break
             if reasons:break
         with gzip.open(directory/'finer_nodes.json.gz','wt',encoding='utf-8',compresslevel=1) as stream:
-            json.dump(plain(fine_nodes),stream,separators=(',',':'),allow_nan=False)
+            json.dump(fine_nodes,stream,separators=(',',':'),allow_nan=False,default=array_list)
         if reasons:return finish(dict(status='withheld_finer_input_support',reasons=sorted(set(reasons)),
             selected_model_relative_energy=None,evaluation_count=len(nodes)+len(fine_nodes),new_native_points=new,reused_points=reused))
         weighted_fine=[(n['weight_length_m'],n) for n in fine_nodes]
@@ -462,13 +488,14 @@ def compute(source):
 
 def prepare(output,resume):
     output=Path(output).resolve()
-    if not output.is_relative_to(ROOT/'artifacts'):raise ValueError('Workspace artifact required')
-    receipt=guard();codes={**receipt['code_sha256'],'scripts/119_calculate_real_road_reflections.py':file_hash(Path(__file__))}
+    if not output.is_relative_to(helper.artifacts_root()):raise ValueError('Workspace artifact required')
+    codes=code_identity();guard(codes)
     if output.exists():
         if not resume or (output/'inventory.json').exists():raise ValueError('Fresh output, or explicit resume of an unsealed run, required')
         protocol=read(output/'protocol.json')
         assert protocol['code_sha256']==codes,'Resume code changed'
         assert protocol['validated_connection_sha256']==file_hash(RECEIPT)
+        assert protocol['engine_equivalence_sha256']==(file_hash(EQUIVALENCE) if EQUIVALENCE.exists() else None)
         assert protocol['runtime']==runtime(),'Resume numerical runtime changed'
         for name,sha in protocol['parent_inventory_sha256'].items():
             helper.verified(ROOT/'artifacts'/name);assert file_hash(ROOT/'artifacts'/name/'inventory.json')==sha
@@ -498,6 +525,8 @@ def prepare(output,resume):
         finer_rule='Four equally weighted interior positions on every accepted primary leaf; 0.1dB H/F period/Lden diagnostic.',
         preexisting_holds='Preserve all 128 combined-reference roads without a previous direct component, including the diagnosed roof/terrain conflict.',
         scope=SCOPE,reference_year=2021,validated_connection_sha256=file_hash(RECEIPT),
+        engine_equivalence_sha256=file_hash(EQUIVALENCE) if EQUIVALENCE.exists() else None,
+        code_identity='Import closure of scripts/119 (run_identity.import_closure).',
         complete_physical_path_support=False,all_inclusive_noise_db=None,map_updated=False)
     fingerprint=hashlib.sha256(json_bytes(definition)).hexdigest()
     protocol=dict(definition,fingerprint=fingerprint)
@@ -557,7 +586,7 @@ def plan_workload(output,resume):
         minimum_primary_plus_finer_observations_if_inputs_resolve=sum(r['minimum_primary_plus_finer_observations'] for r in rows),
         note='Actual cached geometry partitions. Physical holds may reduce work and adaptive refinement may increase it.',
         elapsed_seconds=time.perf_counter()-started)
-    for name,sha in protocol['code_sha256'].items():assert file_hash(ROOT/name)==sha
+    assert code_identity()==protocol['code_sha256']
     atomic_json(output/'workload_plan.json',summary)
     print(json.dumps({k:v for k,v in summary.items() if k!='roads'},indent=2),flush=True)
 
@@ -566,9 +595,9 @@ def close_run(output,protocol,started):
     rows=[read(p) for p in sorted((output/'roads').glob('*/result.json'))]
     assert len(rows)==len({r['link_id'] for r in rows})==722
     assert all(r['fingerprint']==protocol['fingerprint'] for r in rows)
-    receipt=guard()
+    assert code_identity()==protocol['code_sha256'],'Engine code changed during the run'
+    guard(protocol['code_sha256'])
     assert file_hash(RECEIPT)==protocol['validated_connection_sha256']
-    for name,sha in protocol['code_sha256'].items():assert file_hash(ROOT/name)==sha
     for name,sha in protocol['parent_inventory_sha256'].items():assert file_hash(ROOT/'artifacts'/name/'inventory.json')==sha
     for name,sha in protocol['local_input_sha256'].items():assert file_hash(output/name)==sha
     accepted=[r for r in rows if r['selected_model_relative_energy'] is not None]
@@ -589,7 +618,7 @@ def close_run(output,protocol,started):
 
 
 def run(output,resume,workers):
-    if workers not in (1,2):raise ValueError('Use one or two bounded local workers')
+    if workers<1:raise ValueError('At least one worker is required')
     started=time.perf_counter();output,protocol=prepare(output,resume)
     sources=read(output/'source_lines.json')['source_roads']
     done={p.parent.name for p in (output/'roads').glob('*/result.json')}
@@ -617,7 +646,7 @@ def run(output,resume,workers):
 
 def controller_check(directory):
     directory=Path(directory).resolve()
-    if directory.exists() or not directory.is_relative_to(ROOT/'artifacts'):raise ValueError('Fresh check directory required')
+    if directory.exists() or not directory.is_relative_to(helper.artifacts_root()):raise ValueError('Fresh check directory required')
     directory.mkdir(parents=True);checks=[]
     def builder(polygon):
         terrain=NativeTerrain(np.zeros((100,100)),np.ones((100,100)),(-100,-100,100,100),synthetic=True)
@@ -661,7 +690,7 @@ def controller_check(directory):
     journal=PointJournal(directory/'journal','check');value=dict(status='conditional_research',relative_energy_per_m=np.ones((2,3,8)).tolist())
     xy=[507000.123456789,179000.987654321];journal.store(xy,value);journal.close()
     with (directory/'journal'/'active.jsonl').open('ab') as f:f.write(b'{"partial":')
-    restored=PointJournal(directory/'journal','check');assert restored.cache[restored.key(xy)]==value
+    restored=PointJournal(directory/'journal','check');assert restored.value(restored.key(xy))==value
     assert restored.key(xy)!=restored.key([math.nextafter(xy[0],math.inf),xy[1]])
     restored.close();checks.append('exact_coordinate_restart_and_partial_tail')
     try:PointJournal(directory/'journal','different')
@@ -673,7 +702,7 @@ def controller_check(directory):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--output',default=str(ROOT/'artifacts/real_road_reflection_calculation_v4'))
+    p.add_argument('--output',default=str(ROOT/'artifacts/real_road_reflection_calculation_v5'))
     p.add_argument('--resume',action='store_true');p.add_argument('--workers',type=int,default=2)
     p.add_argument('--check-controller',action='store_true')
     p.add_argument('--plan-only',action='store_true')

@@ -15,6 +15,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
+from quiet_uk import generations
 from quiet_uk.explorer import file_hash, json_bytes
 
 BUCKET = 'https://esa-worldcover.s3.eu-central-1.amazonaws.com/'
@@ -24,24 +25,8 @@ DATES = ('2020-12-31T23:59:59Z', '2021-12-31T23:59:59Z')
 MAX_REQUESTS, MAX_TOTAL = 24, 256 * 1024 * 1024
 
 
-def verified(directory):
-    directory = Path(directory).resolve()
-    if not directory.is_relative_to(ROOT / 'artifacts'):
-        raise ValueError('Inputs must be workspace artifacts')
-    inventory = json.loads((directory / 'inventory.json').read_bytes())
-    for name, digest in inventory['files'].items():
-        p = (directory / name).resolve()
-        if not p.is_relative_to(directory) or file_hash(p) != digest:
-            raise ValueError('Input integrity failed: ' + name)
-    return inventory
-
-
-def seal(output, prefix):
-    files = {p.relative_to(output).as_posix(): file_hash(p)
-             for p in sorted(output.rglob('*')) if p.is_file()}
-    inventory = dict(generation_id=prefix + hashlib.sha256(json_bytes(files)).hexdigest()[:20], files=files)
-    (output / 'inventory.json').write_bytes(json_bytes(inventory))
-    return inventory['generation_id']
+# Kept importable here for scripts that load this file by path.
+verified, seal = generations.verified, generations.seal
 
 
 def run(output):

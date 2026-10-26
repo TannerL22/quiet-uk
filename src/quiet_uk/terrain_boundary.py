@@ -7,6 +7,7 @@ synthetic/reference scene. Native terrain steps do not qualify such a scene.
 import math
 from fractions import Fraction
 
+from quiet_uk.propagation_geometry_cache import cached_geometry
 from quiet_uk.propagation_canary import (
     BANDS, SOUND_SPEED, corrected_ground, finite_number, ground_factor,
     ground_homogeneous, positive,
@@ -81,6 +82,7 @@ def _derived_ground_average(value, parts, start, end):
     return ground_factor(float(exact))
 
 
+@cached_geometry
 def ground_average(segments, start, end):
     """Horizontal path-length weighting; unknown support withholds the average."""
     if not segments:
@@ -96,6 +98,7 @@ def ground_average(segments, start, end):
     return _derived_ground_average(value, parts, start, end)
 
 
+@cached_geometry
 def side_ground(segments, start, end):
     """Average a fully supported side range without relaxing supplied factors."""
     if not segments:

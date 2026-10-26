@@ -37,16 +37,7 @@ BREAKS = [45, 50, 55, 60, 65, 70]
 RELEASE_FILES = ('energy.tif', 'quality.tif', 'aircraft_energy.tif', 'aircraft_quality.tif', 'publisher_source.py')
 
 
-def file_hash(path):
-    digest = hashlib.sha256()
-    with Path(path).open('rb') as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def json_bytes(value):
-    return (json.dumps(value, ensure_ascii=False, allow_nan=False, indent=2) + '\n').encode('utf-8')
+from .digests import file_hash, json_bytes  # noqa: E402,F401  (re-exported)
 
 
 def publish_display(catalogue_dir, tile_root, mask_path, destination):
