@@ -1,3 +1,10 @@
+# Pinned calculations hash exact bytes: always check text out with LF, whatever core.autocrlf says.
+* text=auto eol=lf
+# Pinned by real_road_reflection_calculation_v4 with mixed line endings: store exact bytes.
+src/quiet_uk/comparison.py -text
+src/quiet_uk/display_seams.py -text
+src/quiet_uk/explorer.py -text
+src/quiet_uk/source_pilot.py -text
 # Provider captures are evidence: checkout must never convert their line endings.
 tests/fixtures/provider/evidence/** -text
 tests/fixtures/provider/raw/** -text
