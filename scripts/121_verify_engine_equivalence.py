@@ -12,6 +12,7 @@ import gzip
 import hashlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import random
@@ -42,7 +43,7 @@ def sample(output, count, seed):
     rng = random.Random(seed)
     roads = sorted(p.parent.parent.name for p in output.glob('roads/*/observations/chunk-000001.jsonl.gz'))
     rng.shuffle(roads)
-    per_road = max(1, count // max(1, min(len(roads), count)))
+    per_road = max(1, math.ceil(count / max(1, len(roads))))
     chosen = []
     for link in roads:
         records = list(journal_records(output / 'roads' / link / 'observations'))

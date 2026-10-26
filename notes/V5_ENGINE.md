@@ -33,10 +33,16 @@ cell is vectorised with the same float operations as `NativeTerrain.sample`.
 
 | Measure | v4 code | v5 code |
 |---|---|---|
-| Random 120 saved points (mean) | 1.33 s | 0.96 s |
+| Same 120 random saved points (mean per point) | 1.33 s | 0.96 s |
+| 400 other random saved points (mean per point) | — | 0.88 s |
 | 15 expensive points, 7 reflections each (under profiler) | 8.7 s | 4.05 s |
 
-Every replayed observation is identical to v4's saved journal line (script 121).
+Every replayed observation is identical to v4's saved journal line (script 121):
+120, 400 and 1,000-record samples across hundreds of roads, including more than
+a quarter withheld points. The v4 code also reproduced its own records, which
+confirms the harness and the calculation's determinism. Cheap points (few
+reflections) gain least; the expensive points that dominate the remaining long
+roads gain most.
 
 ## Memory
 
@@ -47,6 +53,10 @@ Every replayed observation is identical to v4's saved journal line (script 121).
 - The 2 m terrain grid and its mask (171 MiB) are memory-mapped from a derived
   cache in `artifacts/_derived_raster_cache/<GeoTIFF sha256>/`, shared by all
   workers through the page cache. The cache is verified by hash on every load.
+
+Measured after loading inputs: private memory per worker 1.07 GiB (v4 code)
+and 0.89 GiB (v5); the terrain is then shared page cache. The monitor's memory
+estimate per observation drops from 70 KB to 48 KB for v5.
 
 ## Shared code moved out of numbered scripts
 
