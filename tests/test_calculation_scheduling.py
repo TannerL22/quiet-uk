@@ -84,7 +84,10 @@ def test_staged_chunks_are_engine_journal_records(engine, tmp_path):
     assert sorted(p.name for p in observations.glob('chunk-*')) == ['chunk-000001.jsonl.gz', 'chunk-000002.jsonl.gz']
     restored = engine.PointJournal(observations, 'run')
     for record in staged:
-        assert restored.cache[restored.key(record['xy_bng'])] == record['value']
+        key = restored.key(record['xy_bng'])
+        # v5 caches compact JSON text and decodes through value(); v4 caches dicts.
+        value = restored.value(key) if hasattr(restored, 'value') else restored.cache[key]
+        assert value == record['value']
     restored.store([7.0, 8.0], dict(status='withheld'))
     restored.close()
     assert (observations/'chunk-000003.jsonl.gz').exists()

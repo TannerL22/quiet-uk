@@ -218,10 +218,19 @@ def test_hold_keeps_earlier_chunks_and_promotes_earliest_witness(tmp_path, monke
         (staging / name).write_text(name)
     scheduler.finished_points(third, {"computed": 4, "held_index": 3, "finished": True, "seconds": 1.})
     assert monitor.read_json(monitor.CONTROL / "cancel" / "road-0.json")["position"] == [0, 23]
-    assert [c[0] for c in scheduler.jobs["road-0"].pending] == []  # only later chunks were pending
+    assert list(scheduler.jobs["road-0"].pending) == []  # only later chunks were pending
     scheduler.finished_points(second, {"computed": 5, "held_index": 4, "finished": True, "seconds": 1.})
     assert monitor.read_json(monitor.CONTROL / "cancel" / "road-0.json")["position"] == [0, 14]
     scheduler.finished_points(first, {"computed": 10, "held_index": None, "finished": True, "seconds": 1.})
     assert scheduler.jobs["road-0"].phase == "final"
     witness = scheduler.road_directory("road-0") / "first_held_profile.json.gz"
     assert witness.read_text() == monitor.plan.witness_name("base", 14)
+
+
+def test_positions_stay_in_full_engine_order_after_a_resume(tmp_path, monkeypatch):
+    scheduler = fake_run(tmp_path, monkeypatch, [80.])
+    points, _ = monitor.plan.primary_plan(scheduler.sources["road-0"], {"cells": {"road-0:0": [{"fraction": 0.}, {"fraction": 1.}]}}, 4.)
+    known = {monitor.plan.coordinate_key(p) for p in points[:13]}
+    chunks = list(monitor.positioned_chunks(points, known))
+    assert chunks[0][0] == list(range(13, 23)) and chunks[0][1] == points[13:23]
+    assert sum(len(c[1]) for c in chunks) == len(points) - 13

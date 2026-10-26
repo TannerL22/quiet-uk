@@ -286,7 +286,7 @@ def calculate_points(task):
     started = time.perf_counter()
     try:
         for index, xy in enumerate(task["points"]):
-            GATE.position = (rank, task["start"] + index)
+            GATE.position = (rank, task["positions"][index])
             try:
                 GATE.check()
             except StopRequested:
@@ -303,7 +303,7 @@ def calculate_points(task):
         if records:
             plan.write_staged(staging / f"{task['task_id']}.jsonl.gz", records)
         if witness is not None:
-            path = staging / plan.witness_name(task["phase"], task["start"] + held)
+            path = staging / plan.witness_name(task["phase"], task["positions"][held])
             temporary = path.with_name(path.name + ".writing")
             with gzip.open(temporary, "wt", encoding="utf-8", compresslevel=1) as stream:
                 json.dump(witness, stream, separators=(",", ":"), allow_nan=False)
@@ -430,9 +430,14 @@ class Worker:
 
 
 def positioned_chunks(points, known):
-    """(start, points) chunks of not-yet-saved points, in engine order."""
-    todo = [p for p in points if plan.coordinate_key(p) not in known]
-    return deque((start, todo[start:start + CHUNK_POINTS]) for start in range(0, len(todo), CHUNK_POINTS))
+    """(positions, points) chunks of not-yet-saved points, in engine order.
+
+    Positions index the phase's full coordinate list, so they stay comparable
+    across restarts when more points are already saved.
+    """
+    todo = [(i, p) for i, p in enumerate(points) if plan.coordinate_key(p) not in known]
+    return deque(([i for i, _ in todo[k:k + CHUNK_POINTS]], [p for _, p in todo[k:k + CHUNK_POINTS]])
+                 for k in range(0, len(todo), CHUNK_POINTS))
 
 
 class RoadJob:
@@ -546,8 +551,8 @@ class Scheduler:
 
     def points_task(self, job):
         job.inflight += 1
-        start, points = job.pending.popleft()
-        return ("points", {"link_id": job.link, "points": points, "start": start, "phase": job.phase,
+        positions, points = job.pending.popleft()
+        return ("points", {"link_id": job.link, "points": points, "positions": positions, "phase": job.phase,
                            "task_id": f"{int(time.time() * 1000):013d}-{uuid.uuid4().hex[:8]}",
                            "staging": str(self.staging / job.link)})
 
@@ -604,16 +609,16 @@ class Scheduler:
         job.seconds += reply["seconds"]
         if reply["held_index"] is not None:
             # The engine stops at this panel: later chunks are not needed, earlier ones are.
-            position = task["start"] + reply["held_index"]
+            position = task["positions"][reply["held_index"]]
             if job.held is None or position < job.held:
                 job.held = position
-                job.pending = deque(c for c in job.pending if c[0] < position)
+                job.pending = deque(c for c in job.pending if c[0][0] < position)
                 write_json(CONTROL / "cancel" / f"{job.link}.json",
                            {"position": [PHASES.index(task["phase"]), position], "updated": utc_now()})
         elif not reply["finished"] and reply["computed"] < len(task["points"]):
-            start = task["start"] + reply["computed"]
-            if job.held is None or start < job.held:
-                job.pending.appendleft((start, task["points"][reply["computed"]:]))
+            rest = reply["computed"]
+            if job.held is None or task["positions"][rest] < job.held:
+                job.pending.appendleft((task["positions"][rest:], task["points"][rest:]))
         self.advance(job)
 
     def failure(self, kind, task, error):
@@ -627,7 +632,7 @@ class Scheduler:
         if kind == "points" and job is not None:
             job.inflight -= 1
             if row["count"] < MAX_ROAD_FAILURES:
-                job.pending.appendleft((task["start"], task["points"]))
+                job.pending.appendleft((task["positions"], task["points"]))
                 return
         if job is not None and job.inflight:
             return
