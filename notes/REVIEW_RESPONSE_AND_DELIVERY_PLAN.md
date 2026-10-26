@@ -1,5 +1,9 @@
 # Quiet UK: review response and delivery plan
 
+**Historical plan, 24 September 2026.** For current completion status and priorities,
+see the [28 September stocktake](PROJECT_STOCKTAKE_2026-09-28.md) and
+[active roadmap](ACTIVE_ROADMAP.md). The proposal below is retained as written.
+
 Prepared 24 September 2026 against source commit
 `6ba3a0ed99b6b9c9165e9f47d6f9c27470fb461d` and regional release
 `pilot-d0aa536e7c93d05b09fe`. This is a plan, not a claim that the changes below

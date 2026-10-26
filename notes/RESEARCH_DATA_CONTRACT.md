@@ -6,11 +6,25 @@ geographic explorer. Research exports and consumer views use the same explicitly
 identified evidence; an attractive map must never confer scientific credibility
 that the inputs have not earned.
 
-**Current status: provisional historical baseline.** The existing England data
-has substantial structural QA and hash-checked catalogue access. Original source
-acquisition linkage and reference periods remain unresolved. It must not be
-described as independently validated, measured ambient noise, or a research-ready
-exposure dataset. The explorer displays this status and carries it into downloads.
+**Current status, 28 September 2026: source-linked regional exploratory release.**
+The current 5,000 km² native 10 m release preserves provider requests/responses,
+checksums and reproducible construction. Road/rail reference 2021; aircraft's
+provider period and the interpretation of unknown cells remain unresolved. It is
+not independently validated, measured ambient noise or a study-ready exposure
+release. See [current delivery evidence](OXFORD_LONDON_EXPANSION.md).
+
+**2 October addition:** an optional, separately versioned recorded-sound layer
+provides short historical London samples. Its source timestamps, approximate
+positions, calibration limitations and averaging durations remain explicit.
+Reported-cell interpolation holdouts are evaluation against an existing model;
+they do not independently validate actual unknown/below-cutoff cells. Neither
+addition changes native transport values or certifies a total ambient surface.
+See [qualification and evaluation](DATA_FIRST_DELIVERY_2026-10-02.md).
+
+The optional historical England-wide 100 m overview has a separate provisional
+construction and unresolved historical acquisition linkage. Its band descriptions
+below are retained as historical documentation; they are not the active regional
+schema. The invariants and research gates in this contract apply to both.
 
 ## Construction invariants
 
@@ -46,7 +60,7 @@ Product clarification, 21 September 2026: the backend must support different
 research and product questions without reducing its evidence to the map's chosen
 colour metric. Continuous background sound and intermittent loud events must be
 distinguishable wherever the source evidence permits. This is a construction
-requirement; the current historical four-band release does not provide event data.
+requirement; neither the regional release nor the historical four-band release provides event data.
 
 Preserve the finest licensed source evidence available, with immutable originals
 and reproducible derivations. Keep road, rail and aircraft contributions separately
@@ -98,11 +112,21 @@ Primary metric references:
 - [Environmental Noise Directive, Annex I definitions and supplementary indicators](https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX%3A32002L0049).
   This is a definitions reference, not a claim of regulatory compliance.
 
-## Current analytical fields
+## Current regional analytical contract
+
+The native release retains each source and indicator separately. Observations
+include original raw value/encoding, reported or unavailable status, native cell
+geometry, source/metric/period identity, threshold evidence, uncertainty and
+provenance. No real unknown has been promoted to a certified quiet bound. See
+[EVIDENCE_SEMANTICS.md](EVIDENCE_SEMANTICS.md) for the shared UI/API/export states
+and [PLACE_COMPARISON.md](PLACE_COMPARISON.md) for compatible differences.
+There is no validated total-sound field or quietness rank.
+
+## Historical overview analytical fields
 
 | Field | Units and meaning | What it cannot establish |
 |---|---|---|
-| `road_rail_upper_db` | Conservative road + rail upper bound under the configured censoring rules, energy-aggregated to a 100 m cell | Total noise, aviation exposure, exact below-cutoff levels |
+| `road_rail_upper_db` | Provisional road + rail upper bound under historical configured censoring assumptions, energy-aggregated to a 100 m cell | Total noise, aviation exposure, exact below-cutoff levels |
 | `combined_reported_lower_db` | Lower bound from reported road, rail and airport energy | Expected ambient level or a valid interval when paired with the road/rail-only upper band |
 | `airport_reported_lower_db` | Lower bound from reported airport energy | Full aircraft exposure outside reported coverage |
 | `airport_reported_fraction` | Unitless fraction of fine cells with a reported airport value | Aircraft event frequency, aircraft-free time or proof of silence when zero |
@@ -113,7 +137,7 @@ legitimate unreported/censored energy and must not be treated as a measured 0 dB
 The roughly 43.0103 dB two-source floor means many cells cannot be distinguished;
 it is not a true ambient noise estimate or a ranking among quiet places.
 
-## Explorer release and export contract
+## Historical overview release and export contract
 
 `GET /api/dataset` returns a machine-readable record with display contract version,
 release ID, source catalogue build ID/database hash, publisher hash, input hashes,

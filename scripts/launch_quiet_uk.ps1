@@ -12,7 +12,12 @@ $ownsLock = $false
 function Test-QuietUK {
     try {
         $record = Invoke-RestMethod ($appUrl + 'api/app') -TimeoutSec 2
-        if ($record.app -ne 'quiet-uk' -or $record.interface_version -ne 2) { return $false }
+        if ($record.app -ne 'quiet-uk' -or $record.interface_version -ne 4) { return $false }
+        $observationsPath = Join-Path $projectRoot 'artifacts\recorded_sound_v3\manifest.json'
+        if (Test-Path -LiteralPath $observationsPath) {
+            $expectedObserved = Get-Content -LiteralPath $observationsPath -Raw | ConvertFrom-Json
+            if ($record.observations_release -ne $expectedObserved.release_id) { return $false }
+        } elseif ($record.observations_release) { return $false }
         $pilotManifestPath = Join-Path $projectRoot 'artifacts\source_pilot_v1\manifest.json'
         $regionalManifestPath = Join-Path $projectRoot 'artifacts\source_regions_v1\manifest.json'
         if (Test-Path -LiteralPath $regionalManifestPath) { $pilotManifestPath = $regionalManifestPath }

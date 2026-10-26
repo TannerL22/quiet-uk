@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#f7f7f1"><title>Quiet UK · Explore quieter places</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/pilot.css">
-  <script src="/vendor/maplibre-gl.js" defer></script><script src="/comparison.js" defer></script><script src="/pilot.js" defer></script>
+  <script src="/vendor/maplibre-gl.js" defer></script><script src="/comparison.js" defer></script><script src="/pilot-display.js" defer></script><script src="/pilot.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#inspect-centre">Skip to map inspection</a>
@@ -39,6 +39,19 @@
         <a id="point-download" class="download" hidden download>Download this point ↓</a>
         <button id="save-place" class="compare-button" type="button" disabled>＋ Add to comparison</button>
       </section>
+      <details class="recorded-section" id="recorded-section">
+        <summary>Recorded sound samples <span id="recorded-count"></span></summary>
+        <p id="recorded-status" class="small" role="status">Checking availability…</p>
+        <div id="recorded-controls" hidden>
+          <div class="recorded-actions"><label><input id="recorded-toggle" type="checkbox"> Show purple sample markers</label><button id="recorded-show-all" type="button">View all sites</button></div>
+          <label class="control-label" for="recorded-site">Recorded location</label>
+          <select id="recorded-site"><option value="">Choose a recorded site</option></select>
+          <div id="recorded-card" aria-live="polite" hidden><h2 id="recorded-title"></h2><p class="small">Recorded range · mixed environmental sound</p><p id="recorded-value"></p><p id="recorded-detail" class="small"></p></div>
+          <p class="small">Short recordings of mixed sound at approximate site positions. They describe historical samples, not today's sound or an annual average. Their values are separate from the coloured model layers.</p>
+          <p class="small">Mitchell et al., International Soundscape Database. <a href="https://zenodo.org/records/10672568" target="_blank" rel="noopener">Source &amp; CC BY 4.0 licence ↗</a></p>
+          <a href="/downloads/observations.json" class="download" download>Download recorded samples &amp; provenance ↓</a>
+        </div>
+      </details>
       <section class="saved-section" aria-labelledby="saved-title">
         <div class="saved-heading"><h2 id="saved-title">Your places</h2><span id="saved-count">0 / 3</span></div>
         <ol id="saved-places" aria-label="Places to compare"></ol>
@@ -50,7 +63,7 @@
         <p>These are modelled annual indicators at 4 m above ground, not today’s sound or a forecast. A 10 m grid gives finer spatial detail; it does not establish 10 m accuracy.</p>
         <p>Road and rail reference 2021. The airport metadata does not specify its reference period. New retrieval does not make the underlying modelling current.</p>
         <p>Road and rail report from 40 dB for Lden/day and 35 dB at night. Airport cutoffs vary. Unreported cells may be below a cutoff or missing: they cannot be ranked as the quietest places.</p>
-        <p>Background sound, loud-event peaks, event counts and quiet intervals remain unavailable. These layers do not represent all ambient sound or personal exposure.</p>
+        <p>These layers do not represent all ambient sound or personal exposure. Optional recorded sound samples provide short historical observations at a small number of London sites; they cannot fill annual model gaps.</p>
         <p>The evidence download includes original GeoTIFFs, exact request records, metadata snapshots, checksums and construction code. Independent validation and a study-specific method are still needed for research.</p>
       </details>
       <a class="download bundle" href="/downloads/pilot.zip" download>Download data & evidence ↓</a>
@@ -60,7 +73,7 @@
       <div id="map"></div><span class="centre-crosshair" aria-hidden="true">+</span>
       <div class="map-caption"><strong id="map-title">Source pilot</strong><span id="map-value">Select a point inside the outlined area</span><div class="map-actions"><button id="recenter" disabled>Return to area</button><button id="inspect-centre" disabled>Inspect map centre</button><button id="share-view" disabled>Copy view link</button><a href="#point-title">Point details ↓</a></div><span id="share-status" role="status"></span></div>
       <p id="message" role="status" hidden></p>
-      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p id="unknown-legend"></p><p>Only the selected area is coloured. Outlines show available detailed areas.</p></div>
+      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p id="unknown-legend"></p><p id="overlay-status" role="status"></p><p>Only the selected area is coloured. Outlines show available detailed areas.</p></div>
     </section>
   </main>
   <dialog id="comparison-dialog" aria-labelledby="comparison-title">

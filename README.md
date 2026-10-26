@@ -3,22 +3,33 @@
 Quiet UK is a general-purpose map for understanding mapped environmental noise.
 Homes, walks, travel and research are possible uses of the same product.
 
-**Current phase, 25 September 2026:** a working local 10 m regional explorer with
+**Current phase, 2 October 2026:** a working local 10 m regional explorer with
 coverage outlines, source/time controls, place and coordinate search, keyboard
 point inspection, saved comparisons and evidence downloads. It runs independently
 of the optional historical England-wide 100 m overview. Wider UK noise coverage
 is not yet implemented. This is an exploratory product, not an independently
 validated research exposure release.
 
-The **10 m explorer** contains source-linked data for four 10 × 10 km areas
-around Heathrow, Didcot, Oxford and the Chilterns (400 km²). It separates road,
-rail and aircraft with day/night/Lden controls, place search, point comparisons,
-and a downloadable evidence bundle. [Regional release and verification](notes/SOURCE_REGIONAL_RELEASE.md).
+The **10 m explorer** contains a continuous 100 × 50 km Oxford–London footprint
+(**5,000 km²**), including Heathrow, Oxford and the Chilterns. Its 50 cores
+contain 450 road/rail/aircraft indicator rasters, with day/night/Lden controls,
+place search, comparisons and an evidence bundle. This is downloaded coverage,
+not a claim that every source has a reported value everywhere.
+[Current release and verification](notes/OXFORD_LONDON_EXPANSION.md).
 
 The latest local interpretation separates zero-coded unknowns from missing cells,
 keeps aircraft cutoffs explicitly unknown, and warns when aircraft evidence is
 excluded from a road/rail view. Original source values are unchanged.
 [Evidence meanings and verification](notes/EVIDENCE_SEMANTICS.md).
+
+**Data first, then evaluated estimates:** the optional **Recorded sound samples**
+panel now provides 632 distinct short recordings at 11 documented London sites,
+associated with 2019 surveys. It shows historical mixed-sound sample ranges,
+durations, approximate positions, attribution and a separate evidence download.
+These are not annual transport values or present-day predictions. The first
+offline gap experiment profiles the installed road grids and evaluates whole
+reported patches; it does not fill unknown cells.
+[Delivery, qualification and results](notes/DATA_FIRST_DELIVERY_2026-10-02.md).
 
 The [provider extraction audit](notes/PROVIDER_ENCODING_AND_EXTRACTION_AUDIT.md)
 now replays offline from checked-in captures. Successful interior checks agree;
@@ -63,11 +74,29 @@ From this directory on the existing Windows environment:
 .\.venv\Scripts\python.exe scripts\29_serve_explorer.py
 ```
 
-Open **http://127.0.0.1:8766/**. The original 10 m regional map is the home
+Open **http://127.0.0.1:8766/**. The installed 10 m regional map is the home
 page when a regional release is installed. **Show all areas** reveals its coverage;
 **Inspect map centre** supports keyboard use. The selected source/time value is
 shown first, with the nine-indicator table under **All sources and time indicators**.
 View links preserve the source, metric, point, camera, overlay visibility and release.
+Recording links also preserve the selected site and recording release. The launcher
+discovers `artifacts/recorded_sound_v3` when installed; use `--observations PATH`
+for another qualified recording release. Restart an older running server before
+using the updated launcher (interface version 4).
+
+To reproduce the optional recording layer and gap evaluation:
+
+```text
+python scripts/37_acquire_independent_evidence.py
+python scripts/38_build_independent_observations.py
+python scripts/38_build_independent_observations.py --verify
+python scripts/39_evaluate_gap_baselines.py
+```
+
+The first command downloads about 7.2 MB from a pinned, openly licensed Zenodo
+record; it excludes large audio archives. The builder requires a new output
+directory. Gap evaluation requires the research extra and the installed
+Oxford–London source release; it runs offline and preserves all native rasters.
 
 A fresh source checkout plus an extracted regional evidence ZIP is sufficient:
 
@@ -80,7 +109,8 @@ national raster is needed in this mode. The source checkout itself contains test
 fixtures, not the regional scientific release: obtain the existing **Download data
 & evidence** ZIP from a data-equipped installation, or follow the regional
 acquisition instructions below. The normal launcher discovers the standard local
-`source_regions_v2`, `source_regions_v1` or `source_pilot_v1` locations.
+`artifacts/oxford_london_map_v1` first, then `tiled_map_v2`, `source_regions_v2`,
+`source_regions_v1` or `source_pilot_v1` under `artifacts/`.
 
 When all historical inputs are installed, normal startup also enables the
 explicit **Historical overview** link at `/overview`. Its construction and Lden
@@ -95,13 +125,18 @@ repaired silently. Use a new `--display` destination for a new display generatio
 
 Regional startup makes a private, checksum-verified copy in the operating-system
 temporary directory. The running app stays pinned to those bytes if the original
-folder changes; restart to load another release. A maximum of 48 raster readers
-are reused with exclusive access. Evidence ZIPs are built once on disk and streamed,
+folder changes; restart to load another release. A maximum of 512 raster readers
+are reused with exclusive access. The serving CLI caps the GDAL pixel cache at
+128 MiB; that is not a bound on total process memory. Evidence ZIPs are built once on disk and streamed,
 with at most two simultaneous downloads. Normal shutdown removes the private copy
 and ZIP; forced termination may leave a `quiet-uk-serving-*` temporary directory.
-Allow extra disk space for the copied release and its ZIP (about 328 MB for the
-current regional release). Historical overview serving is unchanged.
-See [serving isolation, measurements and limitations](notes/REGIONAL_SERVING.md).
+Allow about **6.14 GB** extra disk space for the current copied release and ZIP.
+The latest local five-client benchmark measured 47 s verified startup, point
+p95 140 ms, comparison p95 238 ms, and 781 MiB peak process memory through export.
+The first ZIP took 70 s and was 742 MB. These measurements do not establish public
+or national capacity. Historical overview serving is unchanged. See
+[serving isolation](notes/REGIONAL_SERVING.md) and
+[current measurements and limitations](notes/OXFORD_LONDON_EXPANSION.md).
 
 Git tracks the application, tests, dependency lock and documentation. Downloaded
 rasters, generated `artifacts/` (including catalogues, display assets and evidence
@@ -126,15 +161,14 @@ contract version 2 and does not overwrite earlier display generations.
 
 | Present | Still ahead |
 |---|---|
-| England road/rail map and source-qualified point inspection | Wales, Scotland and Northern Ireland noise integration |
+| 5,000 km² detailed map plus optional provisional England overview | Wales, Scotland and Northern Ireland noise integration |
 | Versioned assets, source-linked regional data and evidence exports | National source-linked construction and independent validation |
-| Clear floor ties, withheld values and aircraft limitations | Defensible distinctions between below-threshold quiet places |
+| Explicit unknown states, source scope and aircraft limitations | Defensible distinctions between below-threshold quiet places |
 | Responsive explorer, saved three-place comparisons, evidence exports and local-view sharing | User-tested workflows, broader detailed coverage and optional context layers |
 
-**Start here:** [Source views and temporal foundation](notes/SOURCE_VIEWS_AND_TEMPORAL_FOUNDATION.md),
-[Original explorer implementation](notes/EXPLORER_PHASE1.md),
-[research data contract](notes/RESEARCH_DATA_CONTRACT.md),
-[active roadmap](notes/ACTIVE_ROADMAP.md).
+**Start here:** [active roadmap](notes/ACTIVE_ROADMAP.md),
+[stocktake against the Opus review](notes/PROJECT_STOCKTAKE_2026-09-28.md),
+[research data contract](notes/RESEARCH_DATA_CONTRACT.md).
 The 18 September product review and older phase reports are historical evidence;
 the active roadmap is the current delivery plan.
 
@@ -152,184 +186,180 @@ the launcher selects the verified derivative when installed. Source rasters and
 unknown-value meanings remain unchanged.
 
 The [Oxford–London expansion](notes/OXFORD_LONDON_EXPANSION.md) reuses that sealed
-western acquisition and adds 25 eastern cores, targeting 5,000 km² at the same
-10 m resolution. Its commands, cumulative budgets and delivery status are recorded
+western acquisition and adds 25 eastern cores, delivering 5,000 km² at the same
+10 m resolution. Acquisition, offline reproduction and local map delivery are complete. Its commands, cumulative budgets and delivery status are recorded
 there. The launcher prefers `artifacts/oxford_london_map_v1` when installed; the
 earlier releases remain available for verification and rollback.
 
-## Existing scientific pipeline
+## Historical and experimental work
 
-A reproducible pipeline for building a fine-resolution map of **modelled anthropogenic environmental noise** in England using Defra Round 4 strategic noise mapping.
+The optional 100 m England overview and older Phase 1 bounds have provisional
+construction assumptions. They are not certified quietness rankings and do not
+supply the current 10 m interpretation. A zero-coded or missing regional cell has
+no numerical quietness bound unless its encoding and calculation domain establish
+one; an observed airport minimum is not a threshold on missing values.
 
-The Phase 1 England national output has been downloaded, masked and QA-validated. The current Phase 2C road-source work is a bounded research experiment for sub-threshold interpretation; it does not replace or modify the frozen Phase 1 national raster.
+The historical national product has four bands: combined reported lower,
+road/rail upper, airport reported lower and airport reported fraction. It has no
+all-source upper bound or national quietness rank. See
+[historical national validation](notes/ENGLAND_NATIONAL_VALIDATION.md) and
+[original explorer construction](notes/EXPLORER_PHASE1.md) for their dated scope.
 
-## Phase 1 objective
+Sub-threshold road models, candidate screening and the temporal calculation
+library are experimental or deferred work. They do not deliver validated quiet-end
+estimates or real event data to the current map. Retain their evidence and tests;
+new work follows the active roadmap rather than older phase proposals.
 
-Produce a 100 m England grid with:
+The offline [physical-scene input report](notes/PHYSICAL_SCENE_INPUTS_2026-10-07.md)
+documents complete native 2 m terrain/surface coverage for the bounded
+north-Heathrow road study and provisional building surface-height candidates.
+It retains source dates, missing states and geometry limitations; these inputs
+do not yet supply noise predictions to the map.
 
-- road-noise Lden
-- rail-noise Lden
-- airport-noise Lden
-- logarithmically combined sound-energy bounds
-- source attribution where a source is reported
-- an explicit censoring / confidence indicator
-- a conservative quiet-place ranking suitable for identifying candidate low-noise zones
+The subsequent [carriageway/direction report](notes/ROAD_CARRIAGEWAY_AND_DIRECTION_2026-10-07.md)
+retains official directional traffic and historical one-way evidence, exports
+provisional unsplit budgets, and withholds unsafe separate-carriageway/junction
+allocations. The analytical inputs and qualification map remain offline.
 
-This is an **anthropogenic noise map**, not a total soundscape map. Wind, waves, birds, rivers, temporary construction, neighbours and other local sounds are outside Phase 1.
+The [road-emission assumption report](notes/ROAD_EMISSION_ASSUMPTIONS_2026-10-07.md)
+documents conditional timing/speed/surface cases and spectral source-power
+sensitivity. It supplies no receiver noise or missing-cell predictions to the map.
 
-## Official England source data
+The [ground/barrier audit and synthetic propagation report](notes/GROUND_BARRIER_AND_PROPAGATION_2026-10-10.md)
+checks native terrain samples, unknown obstacle heights and source/deck conventions,
+then verifies controlled ground/screen and analytic point/line cases. These offline
+checks preserve missing inputs and establish numerical fidelity; real-area ground,
+barriers and complete propagation-method qualification remain open.
+The [2021 land-cover and historical barrier input report](notes/GROUND_COVER_AND_BARRIER_INPUTS_2026-10-10.md)
+adds an exact native ESA WorldCover extract across the 144 km² study halo, explicit
+conditional ground analogies and 1,206 historical barrier-related records.
+All observed absorption and qualified acoustic barrier properties remain unknown;
+314 related tests and original-value/geometry verification pass.
+The [terrain-profile and mean-plane increment](notes/TERRAIN_PROFILE_AND_PROPAGATION_CHECKS_2026-10-10.md)
+now adds distance-weighted fits, orthogonal geometry and controlled slope/ridge
+checks. All 20 published geometry comparisons and 32,908 native interval checks
+pass independently, alongside 354 related tests.
+The [single-edge diffraction and ground-coupling increment](notes/TERRAIN_DIFFRACTION_AND_GROUND_COUPLING_2026-10-10.md)
+now implements the homogeneous boundary term and frequency-dependent Rayleigh
+selection. All 94 public numerical comparisons, independent calculations and 411
+related tests pass. The subsequent
+[multiple-edge and finite-width increment](notes/MULTIPLE_EDGE_AND_FINITE_WIDTH_PROPAGATION_2026-10-10.md)
+now handles blocked homogeneous paths over thick roofs and multiple ridges:
+192 public comparisons, independent calculations and 489 related tests pass.
+The [clear-sightline and remaining horizontal-obstacle increment](notes/CLEAR_SIGHTLINES_AND_OBSTACLE_CONFIGURATIONS_2026-10-10.md)
+now adds frequency-dependent physical-edge selection, roof surface/ground
+support and fixed-chain image handling. All 614 public comparisons, independent
+calculations and 568 related tests pass. The subsequent
+[favourable propagation and atmospheric absorption increment](notes/FAVOURABLE_PROPAGATION_AND_ATMOSPHERIC_ABSORPTION_2026-10-10.md)
+adds circular path selection, explicit temperature/humidity/pressure and sound-energy
+weather weighting. All 911 public comparisons, independent boundary/960 absorption
+grid checks and 632 related tests pass. The
+[reflection audit and single-wall increment](notes/REFLECTION_PATH_AUDIT_AND_SINGLE_WALL_CHECKS_2026-10-11.md)
+now checks reflected power, wall-top losses and known absent curved reflections:
+136 public comparisons, independent calculations and 718 related tests pass.
+The [terrain/screen reflection and road source-line increment](notes/SCREENED_REFLECTIONS_AND_ROAD_LINE_INTEGRATION_2026-10-11.md)
+now uses adjacent physical diffraction legs and integrates incoherent power per
+metre through direct/reflected paths to controlled receiver results: 448 public
+comparisons, 80 road octave integrals and 767 related tests pass. One 0.03 dB
+printed-value discrepancy remains flagged within its original 0.1 dB tolerance.
+Qualified real inputs remain missing; real-area noise estimates stay withheld.
+The [real-road geographic scene builder](notes/REAL_ROAD_SCENE_BUILDER_2026-10-11.md)
+now connects retained road lines, native terrain, footprint/barrier intersections
+and finite facade plans to the propagation interface. It prepares 722 source roads
+as 5,448 cells, 722 direct snapshots and 1,418 reflection candidates. All 791 related
+tests and independent raw-data geometry checks pass; an offline per-road readiness
+table retains missing inputs and withheld receiver contributions.
+The [traffic/speed/weather increment](notes/ROAD_OPERATING_INPUTS_2026-10-11.md)
+now supplies explicit conditional operating inputs for all 722 retained roads,
+with 2021 Heathrow station observations, preserved missing-hour support, national
+timing transfers and vehicle-specific motorway speed candidates. Other speeds and
+air gaps have labelled references and scenario comparisons. All 824 related tests
+and independent source-record/equation checks pass. This prepares input consumption;
+qualified real receiver noise and the missing-source road total remain withheld.
 
-Defra Round 4 strategic noise mapping:
+The [physical-scene assumption policy](notes/PHYSICAL_SCENE_ASSUMPTION_POLICY_2026-10-11.md)
+now adds globally consistent candidate building tops, declared ground/height/screen
+cases, source-deck context flags and speed-valid pavement comparisons. It covers
+all 722 retained roads and 2,140 prepared profiles under 15 explicit physical cases.
+The materializer preserves real-scene identity and unknown acoustic properties;
+857 related tests pass. These are offline input and geometric sensitivity results.
+The [conditional direct-road propagation and source-line increment](notes/CONDITIONAL_ROAD_PROPAGATION_2026-10-11.md)
+now connects these inputs to offline receiver calculations along all 722 retained
+roads, preserving hourly traffic/air correlation and every retained source length.
+It evaluates 32,688 quadrature nodes under two declared physical cases. The combined
+reference case has 595 roads numeric at every fine-grid sample and 127 held roads;
+this is finite quadrature support, with reflections and missing sources explicit.
+All 902 related tests and independent source/air/length/energy accounting pass.
+The [adaptive road-integration follow-up](notes/ADAPTIVE_ROAD_INTEGRATION_2026-10-11.md)
+now checks all 97 previously unstable road cases with 22,703 observations and
+independent length/energy/geometry accounting. A further half-spacing check reduces
+the original 9.3 dB discrepancy to 0.0004 dB on that road; two of three checked cases
+pass, while one exposes an unsupported positive path and is withheld in the final
+ledger. After that check, 16 cases retain their primary numerical diagnostic, 59
+are physically held and 22 exceed the initial observation budget. All 961 related
+tests and both independent accounting reviews pass for that generation.
+The [curved-path terrain/obstacle correction](notes/CURVED_PATH_TERRAIN_OBSTACLE_FIX_2026-10-12.md)
+now repairs all 65 recorded failed points on 59 road cases. Independent circle
+geometry verifies the repaired paths, and every one of the 23,958 previously
+numeric point chains is unchanged. All 1,005 related tests pass. Terrain, heights,
+ground and weather assumptions are preserved. The
+[corrected road-integration follow-up](notes/CORRECTED_ROAD_INTEGRATION_2026-10-13.md)
+now reruns all 59 affected roads: 56 meet the primary diagnostic, two exceed the
+unchanged observation budget and one remains held by height inconsistencies.
+Independent review passes for all 62,040 observations, every road sum and the
+complete ledger; 1,013 related tests pass. The completed finer pass checks all 56
+newly primary-met cases plus two controls: 57 pass, with a maximum change of
+0.075211 dB. One sampled ground average rounds one floating-point step above 1;
+exact arithmetic confirms its true value is 1. That road's earlier total is
+removed from the final ledger. All three independent reviews pass; **55 of 59
+affected roads retain both numerical checks and four remain withheld**.
+The [14 October ground-average correction](notes/GROUND_AVERAGE_ROUNDING_FIX_2026-10-14.md)
+now recovers that rejected point. All 629 positions on its road are replayed
+natively; all 628 previously numeric results are bit-identical. The recovered
+road passes at 0.079022 dB, and **56 of the 59 affected roads passed both
+numerical checks at that checkpoint; three remained withheld**. All 1,050 related tests and the
+independent review pass. A fresh ledger preserves the other 1,443 entries.
+The [24 budget-held case increment](notes/BUDGET_HELD_ROAD_INTEGRATION_2026-10-14.md)
+is complete: **all 24 cases pass primary and finer-spacing checks and both
+independent reviews**. The largest finer-spacing change is 0.030198 dB, below the
+unchanged 0.1 dB target. All 1,420 other ledger entries are exactly preserved;
+82 adaptive cases passed both checks at that checkpoint. Its validation receipt is
+`artifacts/budget_road_validation_v2.json`, with 1,059 distinct tests covered by
+the linked receipts. Acoustic equations and source inputs are unchanged.
+The completed [remaining-case follow-up](notes/REMAINING_ROAD_CHECKS_AND_HEIGHT_AUDIT_2026-10-14.md)
+passes all 14 older cases and both independent reviews, with a maximum finer change
+of 0.050122 dB and all 1,430 other ledger entries preserved. **96 adaptive cases
+now pass both checks; no older primary-met case awaits finer checks.** The current
+receipt is `artifacts/remaining_road_validation_v1.json`, with 1,066 distinct tests
+covered by linked receipts. The native height audit confirms the last roof/terrain
+input conflict; that road stays withheld pending matched geometry or a separately
+justified model treatment. Acoustic equations and source inputs are unchanged.
+The [bounded reflection-connection increment](notes/ROAD_REFLECTION_CONNECTION_CLOSURE_2026-10-14.md)
+adds explicit facade hypotheses and connects direct/reflected source power without
+duplicate paths or lengths. Its 221 focused checks pass; 448 original public
+comparisons and 96 controlled road integrals pass independent numerical comparison.
+This closes the two agreed numerical blocks. The 722 existing road snapshots and
+1,418 reflection profiles attach inputs only: complete real-road reflection
+integrals have not been calculated, and capped searches do not qualify complete
+path support. The existing direct ledger and its geometry hold are preserved.
+The installed map still receives no estimated decibels or incomplete all-source total.
+The [17 October actual road-line run](notes/ACTUAL_ROAD_REFLECTION_CALCULATION_2026-10-17.md)
+is now calculating the declared direct/reflected component for eligible roads
+in the existing study. All 722 roads remain accounted for, with the 128 existing
+direct-component holds preserved. Saved observations and completed-road results
+support restart recovery. Current progress is in
+`artifacts/real_road_reflection_calculation_v4/progress.json`; this work directory
+is unsealed until completion and supplies no map values.
 
-- Road Noise — All Metrics — England Round 4  
-  https://environment.data.gov.uk/dataset/562c9d56-7c2d-4d42-83bb-578d6e97a517
-- Rail Noise — All Metrics — England Round 4  
-  https://environment.data.gov.uk/dataset/3fb3c2d7-292c-4e0a-bd5b-d8e4e1fe2947
-- Airport Noise — All Metrics — England Round 4  
-  https://environment.data.gov.uk/dataset/dac9cba4-abe7-43bd-b8e9-8a83da52edd8
+## Local calculation controls
 
-Road and rail are modelled on a 10 m grid at 4 m receptor height. For Lden, Defra applies a lower reporting cutoff of 40 dB. Airport data are also on a 10 m grid, but actual airport reporting thresholds can vary by competent authority.
-
-Coordinate system: British National Grid, EPSG:27700.
-
-## Why censored cells matter
-
-A blank road-noise cell does **not** mean 0 dB. For Lden it generally means the modelled road contribution is below the 40 dB reporting threshold.
-
-For example, if road, rail and airport sources are all reported only as `<40 dB`, we cannot say the combined level is 0 dB. If all three were just under 40 dB, their combined level could approach 44.8 dB.
-
-The pipeline therefore carries **acoustic-energy bounds**:
-
-- `combined_lower_db`: dB equivalent of acoustic energy that is definitely represented by reported source values
-- `combined_upper_db`: conservative dB ceiling obtained by assigning each censored source its reporting-threshold energy
-
-For a cell where every source is censored, the numerical lower bound is not usefully expressible in dB and remains nodata, while the upper bound remains finite.
-
-### Important interpretation
-
-`combined_lower_db` is a mathematical bound, **not an estimate of expected ambient noise**. It can become very low after spatial aggregation because censored fine-grid cells contribute zero *known* energy to the lower bound.
-
-Therefore Phase 1 must **not** rank Britain's quietest locations using the lower bound alone. Candidate quiet zones should initially be ranked conservatively using:
-
-1. lowest `combined_upper_db`,
-2. censoring status / uncertainty,
-3. size and contiguity of the low-noise area.
-
-A later Phase 2 model can resolve the `<40 dB` region further using road distance/traffic, terrain, settlement, aviation and validation measurements.
-
-## Recommended 100 m output fields
-
-| Field | Meaning |
-|---|---|
-| `combined_lower_db` | energy-equivalent lower bound from reported source energy |
-| `combined_upper_db` | conservative upper bound including censored-source threshold energy |
-| `uncertainty_db` | upper minus lower where a numerical lower bound exists |
-| `all_sources_below_threshold` | no source has a reported value in the fine-grid cell/block |
-| `dominant_source` | road / rail / airport where source attribution is available |
-| `quiet_candidate_rank` | later national rank based primarily on conservative upper bound |
-
-Later versions can add access, terrain, roads, settlements, national parks, woodland, public transport and measured validation.
-
-## Setup
-
-Python 3.12+ is required by the current dependency family. The exact tested Windows environment uses Python 3.14.
-
-```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\\Scripts\\activate
-pip install -r requirements.txt
-```
-
-`requirements.txt` delegates to the runtime dependencies in `pyproject.toml`. For the
-full test/development environment, install the package with `pip install -e ".[dev]"`.
-The exact tested Windows CPython 3.14 x64 environment and its wheel verification
-commands are recorded in `notes/REPRODUCIBLE_ENVIRONMENT.md`.
-
-## One-command live pilot
-
-```bash
-cp config.example.json config.json
-python scripts/04_run_pilot.py
-```
-
-On an internet-connected machine this performs:
-
-1. WCS coverage discovery.
-2. Heuristic selection of each Lden coverage.
-3. Download of a 10 km × 10 km Heathrow / west-London pilot.
-4. Raster metadata and alignment validation.
-5. Logarithmic combination of road + rail + airport source energy.
-6. Correct aggregation from 10 m to 100 m using acoustic energy rather than arithmetic dB averaging.
-7. Export of 10 m diagnostic bounds and a 100 m three-band GeoTIFF.
-
-The pilot bounding box is `[503000, 171000, 513000, 181000]` in EPSG:27700. It was selected to give a high probability of overlapping aviation, road and rail sources in one integration test.
-
-## Why 100 m aggregation is done in energy space
-
-Decibels cannot be arithmetically averaged. For fully observed values `L_i`, the energy-equivalent mean is:
-
-`10 * log10(mean(10 ** (L_i / 10)))`
-
-Censoring adds another wrinkle. A censored 10 m cell is **not dropped** from the 100 m lower-bound calculation. Its known lower acoustic energy is zero and it remains in the averaging denominator. Dropping censored cells with `nanmean` would systematically overstate the 100 m lower bound.
-
-For quiet-place discovery, future national output should also retain an intrusion statistic such as the maximum or p90 fine-grid level within each 100 m cell so a mostly quiet block with one noisy road edge can be distinguished from a uniformly quiet block.
-
-## Validation completed locally
-
-The local test suite checks:
-
-- logarithmic addition of equal dB sources (+3.01 dB for two equal sources),
-- three-source combination,
-- energy averaging vs arithmetic averaging,
-- censored lower/upper bounds,
-- correct treatment of censored fine cells during aggregation,
-- Lden coverage-ID selection.
-
-A synthetic three-source GeoTIFF integration test has also been run through the full combine → 100 m export path to verify raster dimensions, band descriptions, British National Grid georeferencing and affine scaling. Synthetic rasters are deliberately **not included** in this package so they cannot be mistaken for Defra observations.
-
-The England Phase 1 production run has 1,498 complete 10 km tiles and 13,086,924 England land 100 m cells; see `notes/ENGLAND_NATIONAL_VALIDATION.md`. Phase 2C has a separate deterministic traffic-assignment, finite-line source-integration and bounded-model experiment over ten geographically varied regions; see `notes/PHASE2C_ROAD_SOURCE_INTEGRITY.md`. It remains research-only because most OS road links are imputed and the Defra targets are censored below threshold.
-
-## Phase 1 England national build
-
-The historical national tile build is complete. Its acquisition linkage remains
-unresolved and its legacy manifest cannot be resumed by the hardened runner.
-The following is the original intended pipeline, not a checklist of completed
-release products:
-
-1. tile the England extent,
-2. download source rasters in manageable chunks,
-3. validate grid alignment and nodata semantics,
-4. combine energy bounds per tile,
-5. aggregate to 100 m,
-6. clip to England land,
-7. mosaic to a Cloud Optimized GeoTIFF,
-8. find contiguous low-`combined_upper_db` zones,
-9. calculate conservative national quiet-candidate rankings,
-10. publish web tiles / PMTiles in MapLibre.
-
-The actual frozen national product has four bands: combined reported lower,
-road/rail upper, airport reported lower, and airport reported fraction. It has
-no all-source upper bound or national quietness rank. The current explorer uses
-a separate qualified energy-display raster and bounded raster tiles; it does
-not use the old full-memory mosaic helper. Do not start a national Phase 2 road
-reconstruction from research outputs without independent sub-threshold validation.
-
-## Phase 2: resolving the truly quiet places
-
-The official source maps are intentionally censored below their reporting thresholds. To distinguish, for example, a likely 39 dB area from a likely 25 dB remote area, Phase 2 should build a sub-threshold model using predictors such as:
-
-- distance to roads by class,
-- traffic volume and speed,
-- HGV share,
-- distance/service intensity for rail,
-- airport/flight-path exposure,
-- terrain shielding,
-- settlement and population density,
-- industrial sources,
-- land cover.
-
-That second-stage model should be calibrated/validated against field measurements where suitable data exist.
+For independent local controls, double-click **Launch Calculation Monitor.cmd**.
+It provides Start / Resume, Pause, Save & Stop, and live road progress, with a
+default four-worker limit. Closing the window leaves calculation running;
+sleep/restart requires a later resume. See the
+[monitor guide](notes/LOCAL_CALCULATION_MONITOR_2026-10-23.md).
 
 ## Data licence
 
-Preserve attribution and licence metadata for each source. Defra identifies these datasets under the Open Government Licence with Crown/Defra attribution.
+Preserve attribution and licence metadata for each source. Defra identifies these
+datasets under the Open Government Licence with Crown/Defra attribution.

@@ -20,6 +20,9 @@ def main():
     parser.add_argument('--build-only', action='store_true')
     parser.add_argument('--regional-only', action='store_true', help='Use only the regional bundle; never read or build historical data')
     parser.add_argument('--geocoder', default='https://nominatim.openstreetmap.org/search')
+    observed = ROOT/'artifacts/recorded_sound_v3'
+    parser.add_argument('--observations', type=Path, default=observed if (observed/'manifest.json').exists() else None,
+                        help='Optional qualified recorded sound release, separate from annual model grids')
     regional = ROOT/'artifacts/source_regions_v1'
     interpreted = ROOT/'artifacts/source_regions_v2'
     if (interpreted/'manifest.json').exists():
@@ -53,7 +56,8 @@ def main():
     if pilot is None and explorer is None:
         parser.error('No local release found. Supply --pilot PATH to an extracted regional bundle. Historical data is built only with --build-only.')
     print('Historical overview: available at /overview' if explorer else 'Regional mode: historical overview not installed or disabled.', flush=True)
-    server = ExplorerServer(args.port, explorer, ROOT/'explorer', PlaceSearch(args.geocoder), pilot=pilot)
+    server = ExplorerServer(args.port, explorer, ROOT/'explorer', PlaceSearch(args.geocoder), pilot=pilot,
+                            observations=args.observations)
     print(f'Quiet UK explorer: http://127.0.0.1:{server.server_port}', flush=True)
     try:
         server.serve_forever()

@@ -15,6 +15,8 @@ from .explorer import json_bytes
 from .catalogue import CatalogueIntegrityError, CatalogueError
 from .comparison import compare_places, comparison_csv
 from .serving_snapshot import RegionalSnapshot, COPY_CHUNK
+from .regional_display import RegionalDisplay
+from .independent_observations import IndependentObservations
 
 
 class PlaceSearch:
@@ -95,11 +97,22 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         explorer = self.server.explorer
         try:
             if url.path == '/api/app':
-                return self._json({'app': 'quiet-uk', 'interface_version': 2,
+                return self._json({'app': 'quiet-uk', 'interface_version': 4,
                                    'default_view': 'regional' if self.server.pilot else 'overview',
                                    'regional_serving': 'private_snapshot_v1' if self.server.pilot else None,
                                    'regional_release': self.server.pilot.manifest['release_id'] if self.server.pilot else None,
-                                   'overview_release': explorer.manifest['release_id'] if explorer else None})
+                                   'overview_release': explorer.manifest['release_id'] if explorer else None,
+                                   'observations_release': self.server.observations.manifest['release_id'] if self.server.observations else None})
+            if url.path in ('/api/observations', '/downloads/observations.json'):
+                if params or url.query:
+                    raise ValueError('Recorded sound context takes no query parameters')
+                observed = self.server.observations
+                if observed is None:
+                    return self._json({'error': 'Recorded sound samples are not installed.'}, 404)
+                if url.path.startswith('/downloads/'):
+                    return self._send(observed.download(), 'application/json; charset=utf-8',
+                                      filename=observed.manifest['release_id']+'.json')
+                return self._json(observed.context())
             national = (url.path in ('/api/dataset', '/api/location', '/downloads/dataset.json', '/downloads/location.json', '/overview')
                         or url.path.startswith('/tiles/'))
             if national and explorer is None:
@@ -112,6 +125,8 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                     return self._json({'error': 'The source pilot has not been built on this machine.'}, 404)
                 if url.path == '/api/pilot':
                     return self._json(pilot.manifest)
+                if url.path == '/api/pilot/display':
+                    return self._json(self.server.regional_display.metadata())
                 if url.path in ('/api/pilot/comparison', '/downloads/pilot-comparison.json', '/downloads/pilot-comparison.csv'):
                     if set(params) != {'places', 'release'} or any(len(v) != 1 for v in params.values()) or len(params['places'][0]) > 2500:
                         raise ValueError('Supply one bounded place list and release')
@@ -124,7 +139,8 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                 if url.path == '/api/pilot/locate':
                     if set(params) != {'lon', 'lat'} or any(len(v) != 1 for v in params.values()):
                         raise ValueError('Supply one longitude and latitude')
-                    return self._json({'sites': pilot.locate(float(params['lon'][0]), float(params['lat'][0]))})
+                    return self._json({'release_id': pilot.manifest['release_id'],
+                                       'sites': pilot.locate(float(params['lon'][0]), float(params['lat'][0]))})
                 if url.path == '/downloads/pilot.zip':
                     if not self.server.download_slots.acquire(blocking=False):
                         return self._json({'error': 'Evidence downloads are busy. Try again shortly.'}, 503)
@@ -133,12 +149,20 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                     finally:
                         self.server.download_slots.release()
                 if url.path in ('/api/pilot/location', '/downloads/pilot-location.json'):
-                    if set(params) != {'site', 'lon', 'lat'} or any(len(v) != 1 for v in params.values()):
+                    if set(params) not in ({'site', 'lon', 'lat'}, {'site', 'lon', 'lat', 'release'}) or any(len(v) != 1 for v in params.values()):
                         raise ValueError('Supply one pilot site, longitude and latitude')
+                    if 'release' in params and params['release'][0] != pilot.manifest['release_id']:
+                        return self._json({'error': 'This view uses another release. Reload to inspect the current evidence.',
+                                           'code': 'release_mismatch'}, 409)
                     result = pilot.lookup(params['site'][0], float(params['lon'][0]), float(params['lat'][0]))
                     if url.path.startswith('/downloads/'):
                         return self._send(json_bytes(result), 'application/json; charset=utf-8', filename=pilot.manifest['release_id']+'-location.json')
                     return self._json(result)
+                overview = re.fullmatch(r'/pilot-images/(pilot-[a-f0-9]{20})/overview-v1/([a-z0-9-]+)/(road|rail|aircraft)/(Lden|Lday|Lnight)\.png', url.path)
+                if overview and overview[1] == pilot.manifest['release_id']:
+                    key = '/'.join(overview.groups()[1:])
+                    if key in self.server.regional_display.groups:
+                        return self._send(self.server.regional_display.overview(key), 'image/png', cache='public, max-age=3600')
                 asset = re.fullmatch(r'/pilot-images/(pilot-[a-f0-9]{20})/([a-z0-9-]+-(?:road|rail|aircraft)-(?:Lden|Lday|Lnight))\.png', url.path)
                 if asset and asset[1] == pilot.manifest['release_id'] and asset[2] in pilot.records:
                     return self._send(pilot.verified_path(pilot.records[asset[2]]['display']['path']).read_bytes(), 'image/png', cache='public, max-age=3600')
@@ -167,6 +191,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                       '/overview': ('index.html', 'text/html; charset=utf-8'),
                       '/pilot': ('pilot.html', 'text/html; charset=utf-8'),
                       '/pilot.js': ('pilot.js', 'text/javascript'), '/pilot.css': ('pilot.css', 'text/css'),
+                      '/pilot-display.js': ('pilot-display.js', 'text/javascript'),
                       '/comparison.js': ('comparison.js', 'text/javascript'),
                       '/app.js': ('app.js', 'text/javascript'), '/styles.css': ('styles.css', 'text/css'),
                       '/vendor/maplibre-gl.js': ('vendor/maplibre-gl.js', 'text/javascript'),
@@ -192,16 +217,22 @@ class ExplorerServer(ThreadingHTTPServer):
     # Wait for in-flight requests before removing their private data files.
     daemon_threads = False
 
-    def __init__(self, port, explorer, asset_root, search=None, pilot=None):
+    def __init__(self, port, explorer, asset_root, search=None, pilot=None, observations=None):
         self.explorer, self.asset_root = explorer, Path(asset_root)
         self.search = search or PlaceSearch()
         self.pilot = None
+        self.regional_display = None
+        self.observations = None
         self.download_slots = threading.BoundedSemaphore(2)
         super().__init__(('127.0.0.1', port), ExplorerHandler)
         try:
+            self.observations = IndependentObservations(observations) if observations is not None else None
             self.pilot = RegionalSnapshot(pilot) if pilot is not None else None
+            self.regional_display = RegionalDisplay(self.pilot) if self.pilot else None
         except BaseException:
             super().server_close()
+            if self.pilot is not None:
+                self.pilot.close()
             raise
 
     def server_close(self):

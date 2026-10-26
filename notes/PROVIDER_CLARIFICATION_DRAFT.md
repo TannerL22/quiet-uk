@@ -1,5 +1,11 @@
 # Draft provider clarification — not sent
 
+**3 October 2026:** the owner authorised step 1, and a focused
+[unthresholded-output/domain request](DEFRA_DATA_REQUEST_2026-10-03.md) was sent
+to the verified public contact. This broader extraction/airport draft remains
+unsent and is retained for a possible technical follow-up; do not resend it as
+the initial enquiry.
+
 To: `open@defra.gov.uk` (public contact listed in all three captured dataset records)
 
 Subject: England Round 4 noise rasters: zero/nodata semantics, calculation domains and WCS behaviour

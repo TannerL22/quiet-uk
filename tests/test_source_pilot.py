@@ -154,6 +154,23 @@ def test_unsupported_subthreshold_positive_value_rejected(pilot):
         p.inspect_raster(pilot.root/r['path'], r['qa']['bounds'], r['native_grid'], 'Lden')
 
 
+@pytest.mark.parametrize('scale,offset', [(2,0),(1,4),(float('nan'),0),(1,float('inf'))])
+def test_regional_encoding_rejects_scaled_or_nonfinite_samples(pilot, scale, offset):
+    r = pilot.manifest['records'][0]
+    point = coords(pilot, col=2)
+    with rasterio.open(pilot.root/r['path'], 'r+') as ds:
+        ds.scales = (scale,); ds.offsets = (offset,)
+    with pytest.raises(ValueError, match='scale/offset'):
+        p.inspect_raster(pilot.root/r['path'], r['qa']['bounds'], r['native_grid'], r['metric'])
+    with pytest.raises(ValueError, match='scale/offset'):
+        p.display_image(pilot.root/r['path'])
+    # Model an older accepted release containing these exact bytes, to exercise
+    # the runtime guard rather than the separate checksum/tamper protection.
+    pilot.manifest['files'][r['path']] = p.file_hash(pilot.root/r['path'])
+    with pytest.raises(CatalogueIntegrityError, match='scale/offset'):
+        pilot.lookup('heathrow', *point)
+
+
 def test_reference_year_is_not_inferred_from_creation_date():
     assert p.provider_period('<h3>Creation</h3>29 September 2025<h3>Period</h3><p>N/A</p></div>') is None
     assert p.provider_period(META)['end'] == '2021-12-31'
@@ -193,6 +210,17 @@ def test_pilot_http_routes_and_integrity(pilot):
     try:
         assert b'id="inspect-centre"' in urlopen(base+'/pilot').read()
         assert json.load(urlopen(base+'/api/pilot'))['release_id'] == pilot.manifest['release_id']
+        display = json.load(urlopen(base+'/api/pilot/display'))
+        assert display['release_id'] == pilot.manifest['release_id']
+        assert urlopen(base+'/pilot-display.js').status == 200
+        assert urlopen(base+display['groups']['heathrow/road/Lden']['url']).read().startswith(b'\x89PNG')
+        point_path = base+f'/api/pilot/location?site=heathrow&lon={lon}&lat={lat}'
+        assert json.load(urlopen(point_path+'&release='+pilot.manifest['release_id']))['release_id'] == pilot.manifest['release_id']
+        for route in ('/api/pilot/location','/downloads/pilot-location.json'):
+            with pytest.raises(HTTPError) as exc:
+                urlopen(base+route+f'?site=heathrow&lon={lon}&lat={lat}&release=stale')
+            assert exc.value.code == 409
+            assert json.load(exc.value)['code'] == 'release_mismatch'
         assert json.load(urlopen(base+f'/api/pilot/locate?lon={lon}&lat={lat}'))['sites'] == ['heathrow']
         assert json.load(urlopen(base+'/api/pilot/locate?lon=-2&lat=53'))['sites'] == []
         with urlopen(base+f'/downloads/pilot-location.json?site=heathrow&lon={lon}&lat={lat}') as response:

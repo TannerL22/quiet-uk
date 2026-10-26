@@ -290,10 +290,18 @@ def coverage_params(product, metric, bounds, *, max_cells=1000):
                      ('subset', f'E({w},{e})'), ('subset', f'N({s},{n})')]
 
 
+def require_identity_encoding(ds):
+    # This regional contract interprets samples directly as dB(A). Reject new
+    # encodings explicitly, including NaN/Inf, rather than silently using raw DN.
+    if ds.scales != (1.0,) or ds.offsets != (0.0,):
+        raise ValueError('Unsupported regional raster scale/offset; expected scale 1 and offset 0')
+
+
 def inspect_raster(path, bounds, grid, metric, *, max_cells=1000):
     with rasterio.open(path) as ds:
         if ds.crs != rasterio.crs.CRS.from_epsg(27700) or ds.count != 1:
             raise ValueError('Expected a single-band EPSG:27700 raster')
+        require_identity_encoding(ds)
         if ds.shape != grid_shape(bounds, max_cells=max_cells) or not np.allclose(ds.bounds, bounds, rtol=0, atol=1e-7):
             raise ValueError(f'Unexpected raster extent/shape: {ds.bounds} {ds.shape}; expected {bounds}')
         t = ds.transform
@@ -357,6 +365,7 @@ def acquire(root, sites=None):
 def display_image(path, *, evidence_version=None, core_bounds=None):
     """A nearest-cell Web Mercator display; analytical files are never warped."""
     with rasterio.open(path) as ds:
+        require_identity_encoding(ds)
         if core_bounds is None:
             t, width, height = calculate_default_transform(ds.crs, 'EPSG:3857', ds.width, ds.height, *ds.bounds)
             pixel_origin = (0, 0)
@@ -628,6 +637,10 @@ class SourcePilot:
         for record in records:
             product = self.manifest['products'][record['source']]
             with self.open_raster(record['path']) as ds:
+                try:
+                    require_identity_encoding(ds)
+                except ValueError as exc:
+                    raise CatalogueIntegrityError(str(exc)) from exc
                 grid = (ds.crs, ds.transform)
                 if grid not in indices:
                     indices[grid] = ds.index(x[0], y[0]) if projectable else (-1, -1)

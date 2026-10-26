@@ -46,3 +46,5 @@ jobs:
         run: python -c "from pathlib import Path; assert not Path('artifacts').exists(); assert not list(Path('data').rglob('*.tif'))"
       - name: Run source-only suite
         run: python -m pytest -q -rs --strict-markers
+      - name: Check regional browser loading policy
+        run: node --test tests/pilot_display.test.cjs
