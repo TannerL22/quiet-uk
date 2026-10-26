@@ -81,8 +81,12 @@ script 57 by path keep working unchanged.
 ## Starting v5
 
 1. Finish or stop v4. Never run two calculations on this laptop at once.
-2. From this worktree, write the equivalence receipt (about 20 minutes):
-   `python scripts/121_verify_engine_equivalence.py --count 1000 --receipt artifacts/engine_equivalence_v5.json`
+2. The equivalence receipt for the current code is already written
+   (`artifacts/engine_equivalence_v5.json`: 1,000 records identical). After any
+   change to an engine file, regenerate it (about 15 minutes) or v5 will refuse
+   to start: `python scripts/121_verify_engine_equivalence.py --count 1000 --receipt artifacts/engine_equivalence_v5.json`
+   A fresh v5 generation computing four real roads (accepted, held early,
+   held mid-primary, held in the finer pass) reproduced v4's results exactly.
 3. Start it with the monitor: `python scripts/calculation_monitor.py --action start --workers 5`.
    On a fresh generation the monitor first runs the engine's own `--plan-only`
    step (about 15 minutes) in a separate process.
