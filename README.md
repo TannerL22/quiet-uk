@@ -231,8 +231,8 @@ sleep while it calculates. See the
 [monitor guide](notes/LOCAL_CALCULATION_MONITOR_2026-10-23.md).
 
 The engine optimisations, narrower code pinning and shared terrain memory for
-the next generation are on the `v5-engine` branch; see
-[v5 engine](notes/V5_ENGINE.md) there. They leave v4 resumable.
+the next generation are on the `v5-engine` branch (see `notes/V5_ENGINE.md`
+there). They leave v4 resumable.
 
 ## Data licence
 

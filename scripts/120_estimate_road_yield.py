@@ -81,13 +81,18 @@ def estimate_road(task):
     started = time.perf_counter()
     source, partition = task['source'], task['partition']
     base, _ = plan.primary_plan(source, partition, engine.DEFAULTS['maximum_panel_m'])
+    budget = task.get('max_checks') or len(base)
+    checked = 0
     for checked, index in enumerate(coarse_to_fine(len(base)), 1):
+        if checked > budget:
+            checked -= 1
+            break
         reasons = certain_point_hold(engine, state, base[index])
         if reasons:
             return dict(link_id=source['link_id'], planned_primary_points=len(base), checked_points=checked,
-                        certain_hold_index=index, reasons=reasons, seconds=time.perf_counter() - started)
-    return dict(link_id=source['link_id'], planned_primary_points=len(base), checked_points=len(base),
-                certain_hold_index=None, reasons=[], seconds=time.perf_counter() - started)
+                        complete_scan=False, certain_hold_index=index, reasons=reasons, seconds=time.perf_counter() - started)
+    return dict(link_id=source['link_id'], planned_primary_points=len(base), checked_points=checked,
+                complete_scan=checked == len(base), certain_hold_index=None, reasons=[], seconds=time.perf_counter() - started)
 
 
 def main():
@@ -98,6 +103,8 @@ def main():
     parser.add_argument('--include-completed', action='store_true',
                         help='Also estimate saved roads and compare with their actual engine status')
     parser.add_argument('--roads', help='Comma-separated road IDs (default: all eligible)')
+    parser.add_argument('--max-checks', type=int, help='Check at most this many coordinates per road, '
+                        'widely spaced first; holds found are still certain, so the count is a lower bound')
     args = parser.parse_args()
     output = Path(args.output).resolve()
     engine = load_engine()
@@ -115,7 +122,7 @@ def main():
         for row in rows:
             record = json.loads(gzip.decompress((output / 'source_partitions' / (row['link_id'] + '.json.gz')).read_bytes()))
             assert record['fingerprint'] == protocol['fingerprint']
-            yield dict(source=sources[row['link_id']], partition=record['partition'])
+            yield dict(source=sources[row['link_id']], partition=record['partition'], max_checks=args.max_checks)
 
     started = time.perf_counter()
     results = {}
@@ -130,6 +137,8 @@ def main():
     held = [link for link in remaining if results[link]['certain_hold_index'] is not None]
     summary = dict(
         remaining_roads_checked=len(remaining), remaining_certain_holds=len(held),
+        remaining_roads_fully_scanned=sum(results[l]['complete_scan'] for l in remaining if l not in held),
+        max_checks_per_road=args.max_checks,
         remaining_planned_observations=sum(planned[l]['minimum_primary_plus_finer_observations'] for l in remaining),
         remaining_planned_observations_on_certain_holds=sum(planned[l]['minimum_primary_plus_finer_observations'] for l in held),
         observations_needed_by_certain_holds=sum((results[l]['certain_hold_index'] // 5 + 1) * 5 for l in held),
@@ -149,7 +158,8 @@ def main():
         if contradictions:
             print('WARNING: predicted certain holds that the engine accepted: ' + ', '.join(contradictions), flush=True)
     report = dict(fingerprint=protocol['fingerprint'], generated=datetime.now(timezone.utc).isoformat(),
-                  method='Facade candidate search and engine facade checks at exact base-panel coordinates; read-only.',
+                  method='Facade candidate search and engine facade checks at exact base-panel coordinates, '
+                         'widely spaced first; read-only. Holds are certain; their count is a lower bound.',
                   summary=summary, validation=validation, roads=results, elapsed_seconds=time.perf_counter() - started)
     control = Path(args.control)
     control.mkdir(parents=True, exist_ok=True)
