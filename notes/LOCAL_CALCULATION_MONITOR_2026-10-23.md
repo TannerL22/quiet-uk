@@ -1,80 +1,100 @@
-# Local calculation monitor — 23 October 2026
+# Local calculation monitor — 23 October 2026 (revised 26 October)
 
 Double-click **Launch Calculation Monitor.cmd** in either the outer project
-folder or the inner repository. The window controls the existing v4 road and
-reflection calculation independently of Codex; opening it does not start work
-automatically. Start / Resume launches a separate background Python process.
+folder or the inner repository. The window controls the road and reflection
+calculation; opening it does not start work. Start / Resume launches a
+separate background Python process.
 
 - **Start / Resume** continues saved roads and exact-coordinate observations.
-- **Pause** waits at the next source-point boundary. It keeps workers and their
-  loaded inputs in memory. A long current point can delay the pause.
-- **Save & Stop** finishes current points, closes the existing observation
-  journals and exits the workers to release memory. Resume replays integration
-  using cached observations; a small amount of bookkeeping may repeat.
-- Closing the monitor leaves the calculation running. Sleeping, shutting down
-  or restarting the laptop stops progress; reopen and resume afterward. There
-  is no automatic startup or sleep-prevention setting.
+- **Pause** waits at the next source-point boundary and keeps workers in memory.
+- **Save & Stop** finishes current points, saves every journal and staged chunk,
+  and exits all workers. Resume continues from the saved observations.
+- Closing the monitor leaves the calculation running. While it calculates the
+  laptop is kept from idle sleep; closing the lid, choosing Sleep, shutting down
+  or restarting still stops it. Reopen and resume afterwards.
 
-The default limit is **four worker processes**, increased from two. On this
-12-core laptop, memory is more restrictive than core count: total RAM is about
-15.6 GiB, with about 2.8 GiB free before this launch. Startup is staggered. The
-controller holds back extra roads when free RAM is below 1.25 GiB, pauses between
-points below 0.5 GiB, and clears that memory pause once more than 1 GiB is free.
-These checks cannot prevent every transient memory peak inside a point. Close
-other apps if memory is tight, or Save & Stop and choose fewer workers.
+## What changed on 26 October
 
-The worker selector accepts up to the detected CPU count (12 on this laptop);
-the former eight-worker cap has been removed. Change it after Save &
-Stop, then resume. Native math library thread pools are limited to one thread
-per worker, and workers run at below-normal Windows priority.
+The 23 October controller ran one road per process, shortest first, and paused
+every worker when free memory was low. That left the longest road (at least
+19 CPU-hours) running alone at the end, and a memory pause could not end on
+its own, because paused workers keep their memory. It also stopped every
+worker if any single road raised an unexpected error.
 
-Progress distinguishes the 594 eligible roads from the 128 existing input holds.
-"Processed" includes roads whose result is withheld; it does not mean every
-road produced an accepted decibel contribution. Remaining time is deliberately
-not extrapolated from the shortest roads. The table shows current road IDs,
-stages and newly calculated source positions for the current road attempt.
+- **Longest roads first.** Instant input holds go first, then roads in
+  decreasing planned work (`workload_plan.json`).
+- **Parallel points within a road.** For roads with at least 400 planned
+  observations, the engine's own first coordinates (five per base panel, then
+  four per accepted leaf) are calculated in chunks of 48 across all workers,
+  using script 119's point functions. Each chunk is staged in the engine's
+  journal format and merged into the road's journal before the unchanged engine
+  completes the road, reusing them. A held point cancels only later chunks; the
+  engine stops at that panel anyway. Recomputed v4 roads match v4 byte for byte
+  (results, node files, every observation and the first-held witness).
+- **Memory.** Below 0.6 GB free, the worker using the most memory saves its
+  point and exits, which actually returns its memory; its work is requeued.
+  Workers come back once more than 2 GB has been free for a minute. A worker
+  that grows past 1.5 GB after a road is replaced. A road call predicted to
+  need more memory than is free waits, and idle workers retire to make room.
+- **Failures stay local.** A road whose task raises or whose worker dies is
+  retried up to three times, recorded in `failures.json`, and then set aside;
+  the rest continue. The run cannot be sealed until every road succeeds, and
+  each new start retries roads that were set aside.
+- **Honest progress.** The bar and percentage are weighted by planned
+  observations, not road counts. A rough remaining time appears after 20
+  minutes; it uses the planned minimum, so held roads finish sooner and
+  refinements add work.
+- **Yield estimate (optional).** `python scripts/120_estimate_road_yield.py`
+  checks, without any acoustics, which roads the model must withhold because
+  of a facade at one of their first coordinates (for example a facade narrower
+  than the assumed view width). The monitor uses its result to order work and
+  to skip calculating coordinates past a road's certain hold. Checked against
+  saved roads, every predicted hold was withheld by the engine.
+
+## Memory and workers
+
+Each worker loads about 0.9 GB of inputs. On this 15.6 GB laptop, 4–6 workers
+leave room for the larger roads; the controller now reduces the count itself
+when memory runs low. The worker limit is chosen after Save & Stop.
 
 ## Execution and provenance
 
-`scripts/calculation_monitor.py` is an external execution controller. It imports
-the original, byte-unchanged script 119 and retains its `prepare`, `compute`,
-`progress` and `close_run` functions. It schedules independent roads with a
-larger process pool. A journal key hook checks pause/stop controls before source
-positions; it delegates coordinate keys and all stored/calculated values to the
-original implementation. Stop unwinds the original journal close block.
+`scripts/calculation_monitor.py` is an external execution controller. It loads
+the original, byte-unchanged script 119 and uses its `prepare`, `compute`,
+`progress` and `close_run` functions, plus its point functions for staged
+chunks. `src/quiet_uk/calculation_scheduling.py` reproduces the engine's
+coordinates; tests check it against `integrate_adaptive` itself, and it
+matched every one of the 594 eligible roads' cached partitions bit for bit.
+The protocol, code binding, runtime identity, acceptance criteria, scientific
+model and sealing are unchanged. The controller's and scheduling module's
+hashes are recorded per launch in `execution_receipt.json`; per-road chunk
+effort is in `prefetch_receipts.jsonl` (a road's `elapsed_seconds` covers only
+its final engine call when its points were calculated in chunks).
 
-The original 93-file code binding, input validation, runtime identity, run
-fingerprint, acceptance criteria, scientific model and final sealing are
-unchanged. No broad physics validation blocks are reopened. The external
-controller's own hash and the original engine hash are recorded per launch in
-`artifacts/local_calculation_control/execution_receipt.json`.
-
-Controls, worker heartbeats, status and log files live in
+Controls, worker heartbeats, staged chunks, status and logs live in
 `artifacts/local_calculation_control/`, outside the run generation. A Windows
-file lock prevents two monitor schedulers running together and releases on
-process exit. Recent unmanaged calculation activity blocks a second launch;
-do not start the old script 119 launcher alongside this controller.
-
-Offline results still cover the existing receiver and declared selected paths.
-They do not update the map or calculate a complete all-inclusive sound level.
+file lock prevents two schedulers running together. Do not start the old
+script 119 launcher alongside this controller.
 
 ## Command-line equivalents
 
 Run from the inner repository:
 
 ```powershell
-.venv\Scripts\python.exe scripts/calculation_monitor.py --action start --workers 4
+.venv\Scripts\python.exe scripts/calculation_monitor.py --action start --workers 5
 .venv\Scripts\python.exe scripts/calculation_monitor.py --action status
 .venv\Scripts\python.exe scripts/calculation_monitor.py --action pause
-.venv\Scripts\python.exe scripts/calculation_monitor.py --action resume --workers 4
 .venv\Scripts\python.exe scripts/calculation_monitor.py --action stop
+.venv\Scripts\python.exe scripts/120_estimate_road_yield.py --workers 4
 ```
 
-The background process survives closing the monitor and Codex. It is not a
-Windows service and does not resume after a restart until you start it again.
+`--output`, `--control` and `--roads` select another run generation, control
+folder or subset of roads (a subset never seals the run); they are used for
+checks on copies of the run.
 
-Six execution-control checks cover pause/resume, stop while memory-paused,
-cross-process duplicate exclusion, stale status handling, immediate restart
-after a clean stop, and rejection of recent unmanaged calculation activity.
-Real-run pause/stop/restart is also checked before handover. The GUI layout
-was checked for clipping at its initial window size.
+## Line endings and git
+
+Pinned files are hashed byte for byte. `.gitattributes` now checks text out
+with LF and stores four pinned files with mixed line endings exactly, so a
+fresh checkout reproduces all 93 v4 hashes. Never switch branches in a folder
+that holds an unsealed pinned run; use a separate `git worktree`.
