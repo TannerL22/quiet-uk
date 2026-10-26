@@ -489,7 +489,7 @@ def compute(source):
 def prepare(output,resume):
     output=Path(output).resolve()
     if not output.is_relative_to(helper.artifacts_root()):raise ValueError('Workspace artifact required')
-    codes=code_identity();guard(codes)
+    codes=code_identity();receipt=guard(codes)
     if output.exists():
         if not resume or (output/'inventory.json').exists():raise ValueError('Fresh output, or explicit resume of an unsealed run, required')
         protocol=read(output/'protocol.json')

@@ -38,8 +38,8 @@ cell is vectorised with the same float operations as `NativeTerrain.sample`.
 | 15 expensive points, 7 reflections each (under profiler) | 8.7 s | 4.05 s |
 
 Every replayed observation is identical to v4's saved journal line (script 121):
-120, 400 and 1,000-record samples across hundreds of roads, including more than
-a quarter withheld points. The v4 code also reproduced its own records, which
+120, 400 and 1,000-record samples (32, 109 and 136 of them withheld points),
+across 93 to 303 roads; the 1,000-record run is the receipt v5 requires. The v4 code also reproduced its own records, which
 confirms the harness and the calculation's determinism. Cheap points (few
 reflections) gain least; the expensive points that dominate the remaining long
 roads gain most.
