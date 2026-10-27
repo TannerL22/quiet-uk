@@ -57,7 +57,7 @@ def test_lock_excludes_second_process_and_recovers(tmp_path):
 def test_stale_running_label_is_not_live(tmp_path, monkeypatch):
     monkeypatch.setattr(monitor, "CONTROL", tmp_path)
     monkeypatch.setattr(monitor, "OUTPUT", tmp_path / "run")
-    monkeypatch.setattr(monitor, "service_alive", lambda: False)
+    monkeypatch.setattr(monitor, "service_alive", lambda control=None: False)
     monitor.write_json(tmp_path / "state.json", {"status": "running", "completed_roads": 14})
     assert monitor.snapshot()["status"] == "stopped"
     assert monitor.snapshot()["completed_roads"] == 14
@@ -67,7 +67,7 @@ def test_clean_stop_can_restart_immediately(tmp_path, monkeypatch):
     control, output = tmp_path / "control", tmp_path / "run"
     monkeypatch.setattr(monitor, "CONTROL", control)
     monkeypatch.setattr(monitor, "OUTPUT", output)
-    monkeypatch.setattr(monitor, "service_alive", lambda: False)
+    monkeypatch.setattr(monitor, "service_alive", lambda control=None: False)
     calls = []
     monkeypatch.setattr(monitor.subprocess, "Popen", lambda *a, **kw: calls.append(kw))
     monitor.write_json(output / "progress.json", {"status": "running"})
@@ -80,7 +80,7 @@ def test_clean_stop_can_restart_immediately(tmp_path, monkeypatch):
 def test_refuses_recent_unmanaged_calculation(tmp_path, monkeypatch):
     monkeypatch.setattr(monitor, "CONTROL", tmp_path / "control")
     monkeypatch.setattr(monitor, "OUTPUT", tmp_path / "run")
-    monkeypatch.setattr(monitor, "service_alive", lambda: False)
+    monkeypatch.setattr(monitor, "service_alive", lambda control=None: False)
     monitor.write_json(monitor.OUTPUT / "progress.json", {"status": "running"})
     with pytest.raises(ValueError, match="Recent calculation"):
         monitor.launch(4)
@@ -234,3 +234,19 @@ def test_positions_stay_in_full_engine_order_after_a_resume(tmp_path, monkeypatc
     chunks = list(monitor.positioned_chunks(points, known))
     assert chunks[0][0] == list(range(13, 23)) and chunks[0][1] == points[13:23]
     assert sum(len(c[1]) for c in chunks) == len(points) - 13
+
+
+def test_refuses_to_start_while_another_generation_runs(tmp_path, monkeypatch):
+    mine, other = tmp_path / "mine", tmp_path / "other"
+    monkeypatch.setattr(monitor, "CONTROL", mine)
+    monkeypatch.setattr(monitor, "OUTPUT", tmp_path / "run")
+    monkeypatch.setattr(monitor, "ALL_CONTROLS", {"this": mine, "older": other})
+    other.mkdir()
+    lock = monitor.ServiceLock(other / "service.lock")
+    assert lock.acquire()
+    try:
+        with pytest.raises(ValueError, match="older calculation is running"):
+            monitor.launch(4)
+    finally:
+        lock.release()
+    assert not (mine / "command.json").exists()
