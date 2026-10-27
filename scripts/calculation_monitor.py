@@ -34,6 +34,9 @@ from quiet_uk import calculation_scheduling as plan  # noqa: E402
 OUTPUT = ROOT / "artifacts/real_road_reflection_calculation_v5"
 CONTROL = ROOT / "artifacts/local_calculation_control_v5"
 ENGINE_PATH = ROOT / "scripts/119_calculate_real_road_reflections.py"
+GENERATION = "v5"
+# Every generation's control folder: only one calculation may run on this laptop.
+ALL_CONTROLS = {"v4": ROOT / "artifacts/local_calculation_control", "v5": ROOT / "artifacts/local_calculation_control_v5"}
 ENGINE = None
 TOTAL_ROADS = 722
 
@@ -158,8 +161,8 @@ class ServiceLock:
             self.stream = None
 
 
-def service_alive():
-    lock = ServiceLock(CONTROL / "service.lock")
+def service_alive(control=None):
+    lock = ServiceLock((control or CONTROL) / "service.lock")
     acquired = lock.acquire()
     if acquired:
         lock.release()
@@ -364,6 +367,9 @@ def command(action, workers=4):
 def launch(workers, roads=None):
     if (OUTPUT / "inventory.json").exists():
         raise ValueError("This calculation is already complete")
+    for name, control in ALL_CONTROLS.items():
+        if control.resolve() != CONTROL.resolve() and service_alive(control):
+            raise ValueError(f"The {name} calculation is running. Save & Stop it in its own monitor first.")
     if not service_alive():
         # Refuse to overlap an independently launched legacy scheduler.
         recent = [OUTPUT / "progress.json", *OUTPUT.glob("roads/*/activity.json")]
@@ -887,7 +893,7 @@ def gui():
     import tkinter as tk
     from tkinter import messagebox, ttk
     root = tk.Tk()
-    root.title("Quiet UK — Calculation Monitor")
+    root.title(f"Quiet UK — Calculation Monitor ({GENERATION})")
     root.geometry("860x700")
     root.minsize(760, 620)
     root.configure(bg="#eef3f6")
@@ -900,7 +906,7 @@ def gui():
     style.configure("TButton", font=("Segoe UI", 10), padding=(12, 9))
     frame = ttk.Frame(root, padding=24)
     frame.pack(fill="both", expand=True)
-    ttk.Label(frame, text="Quiet UK", style="Title.TLabel").pack(anchor="w")
+    ttk.Label(frame, text=f"Quiet UK · {GENERATION}", style="Title.TLabel").pack(anchor="w")
     ttk.Label(frame, text="Local road & building-reflection calculation").pack(anchor="w", pady=(2, 18))
     status = ttk.Label(frame, text="Reading saved progress…", style="Status.TLabel")
     status.pack(anchor="w")
