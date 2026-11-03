@@ -31,10 +31,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from quiet_uk import calculation_scheduling as plan  # noqa: E402
 
-OUTPUT = ROOT / "artifacts/real_road_reflection_calculation_v4"
-CONTROL = ROOT / "artifacts/local_calculation_control"
+OUTPUT = ROOT / "artifacts/real_road_reflection_calculation_v5"
+CONTROL = ROOT / "artifacts/local_calculation_control_v5"
 ENGINE_PATH = ROOT / "scripts/119_calculate_real_road_reflections.py"
-GENERATION = "v4"
+GENERATION = "v5"
 # Every generation's control folder: only one calculation may run on this laptop.
 ALL_CONTROLS = {"v4": ROOT / "artifacts/local_calculation_control", "v5": ROOT / "artifacts/local_calculation_control_v5"}
 ENGINE = None

@@ -14,9 +14,9 @@ import math
 import os
 from pathlib import Path
 
-# Measured on v4: about 31 KB per cached observation, plus node lists and the
-# deep copy made while writing node files.
-OBSERVATION_BYTES = 70 * 1024
+# v5 holds journal values as about 9 KB of JSON text and no longer deep-copies
+# nodes when writing them; node dicts (about 31 KB each) remain. v4 needed 70 KB.
+OBSERVATION_BYTES = 48 * 1024
 
 
 def coordinate_key(xy):
