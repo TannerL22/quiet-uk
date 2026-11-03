@@ -32,11 +32,11 @@ The HTTP interface and launcher requirement are now **version 3**, because the f
 
 The browser checks are manual integration checks; the CI addition tests the pure loading/recipe policy, not a full browser session. Remote CI, physical phones, screen readers, browser heap/GPU memory and the planned reduced-reader-cache experiment were not run. The larger mobile place-summary/comparison redesign remains a separate increment.
 
-Local measurements, request traces and screenshots are in [viewport_loading_checks](C:/Users/tanne/Desktop/quiet-uk-starter-v0.2/quiet-uk-starter/artifacts/viewport_loading_checks), which is ignored by Git.
+Local measurements, request traces and screenshots are in [viewport_loading_checks](../artifacts/viewport_loading_checks), which is ignored by Git.
 
 ```text
 .venv\Scripts\python.exe -m pytest -q -rs --strict-markers
 node --test tests/pilot_display.test.cjs
 ```
 
-![Final desktop overview](C:/Users/tanne/Desktop/quiet-uk-starter-v0.2/quiet-uk-starter/artifacts/viewport_loading_checks/desktop-overview-final.jpg)
+![Final desktop overview](../artifacts/viewport_loading_checks/desktop-overview-final.jpg)

@@ -163,7 +163,7 @@
     ],
     "method": "minimum finite reported value per region; threshold used only when all regional minima agree within 0.5 dB"
   },
-  "land_mask": "C:\\Users\\tanne\\Desktop\\quiet-uk-starter-v0.2\\quiet-uk-starter\\data\\processed\\england_mask\\england_100m_mask.tif",
+  "land_mask": "data/processed/england_mask/england_100m_mask.tif",
   "models": [
     "phase2b_proxy",
     "phase2c_proxy",
@@ -190,9 +190,9 @@
     "defra_road_lnight_coverage_id": "562c9d56-7c2d-4d42-83bb-578d6e97a517:Road_Noise_Lnight_England_Round_4_All"
   },
   "outputs": {
-    "validation_metrics": "C:\\Users\\tanne\\Desktop\\quiet-uk-starter-v0.2\\quiet-uk-starter\\data\\processed\\phase2c_road\\validation_metrics.csv",
-    "comparison": "C:\\Users\\tanne\\Desktop\\quiet-uk-starter-v0.2\\quiet-uk-starter\\data\\processed\\phase2c_road\\phase2b_vs_phase2c_comparison.csv",
-    "lightweight_results": "C:\\Users\\tanne\\Desktop\\quiet-uk-starter-v0.2\\quiet-uk-starter\\results\\phase2c"
+    "validation_metrics": "data/processed/phase2c_road/validation_metrics.csv",
+    "comparison": "data/processed/phase2c_road/phase2b_vs_phase2c_comparison.csv",
+    "lightweight_results": "results/phase2c"
   },
   "osm_path_inventory": {
     "endpoint": "https://overpass-api.de/api/interpreter",

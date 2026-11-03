@@ -45,6 +45,12 @@ from quiet_uk.phase2c_road import (  # noqa: E402
 )
 
 
+def repository_path(path: Path) -> str:
+    """Repository-relative POSIX path for manifests, so they hold no machine-specific location."""
+    path = Path(path).resolve()
+    return path.relative_to(ROOT).as_posix() if path.is_relative_to(ROOT) else str(path)
+
+
 MODEL_FEATURES = {
     "phase2b_proxy": ("p2b_log1p_nearest_distance_m", "p2b_log10_inverse_square_energy_10000m"),
     "phase2c_proxy": ("p2c_log1p_nearest_distance_m", "p2c_log10_inverse_square_energy_5000m"),
@@ -583,7 +589,7 @@ def main() -> None:
         "records": len(records),
         "primary_year": 2021,
         "thresholds": thresholds,
-        "land_mask": str(mask_path),
+        "land_mask": repository_path(mask_path),
         "models": list(MODEL_FEATURES),
         "source_provenance": {
             "dft_aadf": {"url": phase2b.DFT_AADF_ALL_YEARS_URL, "year": 2021, "rows": len(aadf)},
@@ -592,9 +598,9 @@ def main() -> None:
             "defra_road_lden_coverage_id": phase2b.ROAD_LDEN_COVERAGE_ID,
             "defra_road_lnight_coverage_id": phase2b.ROAD_LNIGHT_COVERAGE_ID,
         },
-        "outputs": {"validation_metrics": str(output_root / "validation_metrics.csv"),
-                    "comparison": str(output_root / "phase2b_vs_phase2c_comparison.csv"),
-                    "lightweight_results": str(results_root)},
+        "outputs": {"validation_metrics": repository_path(output_root / "validation_metrics.csv"),
+                    "comparison": repository_path(output_root / "phase2b_vs_phase2c_comparison.csv"),
+                    "lightweight_results": repository_path(results_root)},
         "osm_path_inventory": osm_info,
     })
     write_json(output_root / "phase2c_manifest.json", manifest)
