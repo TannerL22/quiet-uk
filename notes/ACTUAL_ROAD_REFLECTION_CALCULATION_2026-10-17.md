@@ -5,11 +5,14 @@ calculate the declared direct-plus-single-reflection model along the existing
 real road lines at the existing receiver. This is a calculation run, not a new
 pilot or another general propagation test programme.
 
-Current work directory: `artifacts/real_road_reflection_calculation_v4`.
-Its `progress.json` records completed roads and active source-point counts.
-The directory is an **unsealed work journal until the calculation finishes**;
-it must not be cited as a completed result or consumed by the map. At completion
-the runner writes `road_results.json`, `report.json`, and an immutable inventory.
+**Status, 3 November 2026: complete.** The result is the sealed generation
+`artifacts/real_road_reflection_calculation_v5` (`road_results.json`,
+`report.json`, `inventory.json`): 351 roads accepted, 235 withheld for primary support or numerics, 8 withheld
+in the finer check, and the 128 existing direct-component holds.
+It was calculated with the [v5 engine](V5_ENGINE.md), which reproduces v4 byte for
+byte. The v4 work directory below (`artifacts/real_road_reflection_calculation_v4`)
+was stopped unfinished and is kept as the reference for that comparison; it must
+not be cited as a result. The sections below describe the run as launched.
 Preparation is caching each actual road's geometry partition first; a queued
 two-worker calculation starts automatically when `workload_plan.json` is ready.
 Queue state is outside the eventual immutable generation, at

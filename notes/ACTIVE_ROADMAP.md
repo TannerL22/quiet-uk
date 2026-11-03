@@ -216,9 +216,12 @@ fixed ledger covers 722 roads, preserving 128 existing direct-component holds;
 building-back candidates, the two-profile cap is removed within the declared
 100 m detour model, and finite-facade/detour changes split source intervals.
 Exact-coordinate observation journals and completed-road files support restart
-recovery. This run is in progress at
-`artifacts/real_road_reflection_calculation_v4`; it is not a completed generation
-or a map release. There is no additional general propagation-test programme.
+recovery. It completed on 3 November 2026 as the sealed generation
+`artifacts/real_road_reflection_calculation_v5` (the faster, byte-identical v5
+engine): 351 roads accepted, 235 withheld for primary support or numerics, 8 withheld
+in the finer check, and the 128 existing direct-component holds. The unfinished v4 run was stopped; all 394 of its
+completed roads and all 277,948 of its saved observations are identical in v5.
+It is not a map release. There is no additional general propagation-test programme.
 Complete road-network and all-inclusive predictions remain withheld. Historical
 counter mapping/full-year quality and remaining physical/traffic inputs still
 precede a credible real-area absolute prediction. The provider wait does not

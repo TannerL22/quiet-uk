@@ -34,10 +34,17 @@ def main():
         if name in names:
             roles.setdefault(name, 'app release')
     inputs = {}
+    sealed_calculation = next((n for n in CALCULATIONS if (ARTIFACTS / n / 'inventory.json').exists()), None)
     for name in CALCULATIONS:
         protocol = read(ARTIFACTS / name / 'protocol.json')
         if protocol:
-            roles[name] = 'road calculation' + (' (sealed)' if (ARTIFACTS / name / 'inventory.json').exists() else ' (in progress)')
+            if (ARTIFACTS / name / 'inventory.json').exists():
+                state = ' (sealed)'
+            elif sealed_calculation:
+                state = f' (stopped; superseded by {sealed_calculation})'
+            else:
+                state = ' (in progress)'
+            roles[name] = 'road calculation' + state
             for parent in protocol.get('parent_inventory_sha256', {}):
                 inputs.setdefault(parent, name)
     newest = {}

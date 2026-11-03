@@ -216,8 +216,9 @@ the propagation kernels against published and independent calculations. Its
 dated increments, from the [physical-scene inputs](notes/PHYSICAL_SCENE_INPUTS_2026-10-07.md)
 to the [actual road-line run](notes/ACTUAL_ROAD_REFLECTION_CALCULATION_2026-10-17.md),
 are listed in the [increment history](notes/ROAD_PROPAGATION_HISTORY.md). That
-calculation (`artifacts/real_road_reflection_calculation_v4`) is in progress, is
-unsealed until completion, and supplies no map values. Which artifact folders are
+calculation completed on 3 November 2026 as the sealed generation
+`artifacts/real_road_reflection_calculation_v5` (351 of 722 roads accepted; the
+rest withheld) and supplies no map values. Which artifact folders are
 in use is listed in [current generations](notes/CURRENT_GENERATIONS.md).
 
 ## Local calculation controls
@@ -230,9 +231,10 @@ Closing the window leaves calculation running; the laptop is kept from idle
 sleep while it calculates. See the
 [monitor guide](notes/LOCAL_CALCULATION_MONITOR_2026-10-23.md).
 
-The engine optimisations, narrower code pinning and shared terrain memory for
-the next generation are on the `v5-engine` branch (see `notes/V5_ENGINE.md`
-there). They leave v4 resumable.
+The completed run used the v5 engine: byte-identical speed-ups, code pinned to
+the engine's import closure, and shared terrain memory (see
+[the v5 engine note](notes/V5_ENGINE.md)). The earlier v4 run was stopped
+unfinished; v5 reproduces every road and observation it saved.
 
 ## Data licence
 

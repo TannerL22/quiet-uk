@@ -78,6 +78,27 @@ script 57 by path keep working unchanged.
   remaining work it affects.
 - The on-disk journal format, so existing verification scripts read v5 output.
 
+## Result (3 November 2026)
+
+The v5 generation completed and sealed (`real-road-selected-reflections-a559962adcc7c75c3de6`,
+22,262 files, all hashes verified): 351 roads accepted, 235 withheld for primary support or numerics, 8 withheld
+in the finer check, and the 128 existing direct-component holds
+(808,423 point evaluations; largest accepted finer change 0.098 dB). None of the
+31 closure files changed during the run, and the equivalence receipt it recorded
+is the one on disk.
+
+`scripts/122_compare_calculation_generations.py` compared every road v4 saved:
+all 394 completed roads have identical results, primary and node files and
+first-held witnesses, and all 277,948 saved v4 observations (including the 8
+roads v4 never finished) are identical in v5. Only the run fingerprint, timing
+and reused/new point counters differ. Receipt:
+`artifacts/real_road_reflection_v4_v5_comparison.json`. v4 was stopped and is
+not needed; keep it as the reference for this comparison.
+
+The run recorded four transient Windows `PermissionError`s (a file briefly held
+open, most likely by antivirus scanning, during an atomic rename). Each was
+retried automatically and succeeded.
+
 ## Starting v5
 
 1. Finish or stop v4. Never run two calculations on this laptop at once.

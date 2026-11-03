@@ -9,7 +9,7 @@ Re-run it after adding or archiving generations. It reads only; nothing is moved
 - **temporary**: scratch output of earlier checks; a candidate to archive once confirmed unused.
 - **unreferenced**: not used by the app or the current calculation; history or supporting evidence.
 
-Summary: 7 app, 12 input, 62 older, 1 road, 14 temporary, 136 unreferenced, plus 172 loose files.
+Summary: 7 app, 12 input, 62 older, 2 road, 14 temporary, 137 unreferenced, plus 174 loose files.
 
 | Folder | Role | State |
 |---|---|---|
@@ -20,19 +20,20 @@ Summary: 7 app, 12 input, 62 older, 1 road, 14 temporary, 136 unreferenced, plus
 | `source_regions_v1` | app release | unsealed |
 | `source_regions_v2` | app release | unsealed |
 | `tiled_map_v2` | app release | unsealed |
-| `real_road_reflection_calculation_v4` | road calculation (in progress) | unsealed |
-| `adaptive_road_integration_v3` | input of real_road_reflection_calculation_v4 | sealed |
-| `ground_cover_inputs_v3` | input of real_road_reflection_calculation_v4 | sealed |
-| `physical_scene_assumption_review_v1` | input of real_road_reflection_calculation_v4 | sealed |
-| `physical_scene_assumptions_v2` | input of real_road_reflection_calculation_v4 | sealed |
-| `physical_scene_inputs_v2` | input of real_road_reflection_calculation_v4 | sealed |
-| `real_road_scenes_v2` | input of real_road_reflection_calculation_v4 | sealed |
-| `remaining_road_spacing_check_v1` | input of real_road_reflection_calculation_v4 | sealed |
-| `road_direction_inputs_v2` | input of real_road_reflection_calculation_v4 | sealed |
-| `road_emission_assumptions_v2` | input of real_road_reflection_calculation_v4 | sealed |
-| `road_operating_inputs_v2` | input of real_road_reflection_calculation_v4 | sealed |
-| `road_reflection_connection_review_v1` | input of real_road_reflection_calculation_v4 | sealed |
-| `road_reflection_connection_v2` | input of real_road_reflection_calculation_v4 | sealed |
+| `real_road_reflection_calculation_v4` | road calculation (stopped; superseded by real_road_reflection_calculation_v5) | unsealed |
+| `real_road_reflection_calculation_v5` | road calculation (sealed) | sealed |
+| `adaptive_road_integration_v3` | input of real_road_reflection_calculation_v5 | sealed |
+| `ground_cover_inputs_v3` | input of real_road_reflection_calculation_v5 | sealed |
+| `physical_scene_assumption_review_v1` | input of real_road_reflection_calculation_v5 | sealed |
+| `physical_scene_assumptions_v2` | input of real_road_reflection_calculation_v5 | sealed |
+| `physical_scene_inputs_v2` | input of real_road_reflection_calculation_v5 | sealed |
+| `real_road_scenes_v2` | input of real_road_reflection_calculation_v5 | sealed |
+| `remaining_road_spacing_check_v1` | input of real_road_reflection_calculation_v5 | sealed |
+| `road_direction_inputs_v2` | input of real_road_reflection_calculation_v5 | sealed |
+| `road_emission_assumptions_v2` | input of real_road_reflection_calculation_v5 | sealed |
+| `road_operating_inputs_v2` | input of real_road_reflection_calculation_v5 | sealed |
+| `road_reflection_connection_review_v1` | input of real_road_reflection_calculation_v5 | sealed |
+| `road_reflection_connection_v2` | input of real_road_reflection_calculation_v5 | sealed |
 | `adaptive_road_density_plot_v1` | unreferenced | unsealed |
 | `adaptive_road_integration_review_v1` | unreferenced | sealed |
 | `adaptive_road_spacing_check_v1` | unreferenced | sealed |
@@ -84,6 +85,7 @@ Summary: 7 app, 12 input, 62 older, 1 road, 14 temporary, 136 unreferenced, plus
 | `independent_evidence_v1` | unreferenced | unsealed |
 | `launcher` | unreferenced | unsealed |
 | `local_calculation_control` | unreferenced | unsealed |
+| `local_calculation_control_v5` | unreferenced | unsealed |
 | `minor_road_linkage_v3` | unreferenced | sealed |
 | `monitor_control_checks_20261023_v2` | unreferenced | unsealed |
 | `monitor_worker_limit_checks_20261023_v1` | unreferenced | unsealed |
@@ -204,9 +206,9 @@ Summary: 7 app, 12 input, 62 older, 1 road, 14 temporary, 136 unreferenced, plus
 | `real_reflection_controller_check_v4` | older than real_reflection_controller_check_v7 | unsealed |
 | `real_reflection_controller_check_v5` | older than real_reflection_controller_check_v7 | unsealed |
 | `real_reflection_controller_check_v6` | older than real_reflection_controller_check_v7 | unsealed |
-| `real_road_reflection_calculation_v1` | older than real_road_reflection_calculation_v4 | unsealed |
-| `real_road_reflection_calculation_v2` | older than real_road_reflection_calculation_v4 | unsealed |
-| `real_road_reflection_calculation_v3` | older than real_road_reflection_calculation_v4 | unsealed |
+| `real_road_reflection_calculation_v1` | older than real_road_reflection_calculation_v5 | unsealed |
+| `real_road_reflection_calculation_v2` | older than real_road_reflection_calculation_v5 | unsealed |
+| `real_road_reflection_calculation_v3` | older than real_road_reflection_calculation_v5 | unsealed |
 | `real_road_scenes_v1` | older than real_road_scenes_v2 | sealed |
 | `recorded_sound_v1` | older than recorded_sound_v3 | unsealed |
 | `recorded_sound_v2` | older than recorded_sound_v3 | unsealed |
@@ -246,4 +248,4 @@ Summary: 7 app, 12 input, 62 older, 1 road, 14 temporary, 136 unreferenced, plus
 | `test_tmp_direction_03` | temporary | unsealed |
 | `test_tmp_emission_02` | temporary | unsealed |
 
-Loose files at the top of `artifacts/` (172): logs, benchmarks and receipts from earlier work.
+Loose files at the top of `artifacts/` (174): logs, benchmarks and receipts from earlier work.
