@@ -1,8 +1,9 @@
 # v5 engine — 26 October 2026
 
-Branch `v5-engine`, worked on in a separate `git worktree` so the folder that
-holds the unsealed v4 run is never checked out to other bytes. Nothing here
-changes v4: it stays resumable and sealable from `main` (tag `v4-run-pinned`).
+Developed on branch `v5-engine` in a separate `git worktree`, so the folder
+holding the then-unsealed v4 run was never checked out to other bytes. Merged
+into `main` on 3 November 2026 after the v5 generation completed. v4 is no
+longer resumed; tag `v4-run-pinned` keeps its exact code.
 
 ## Code identity: pin what the engine runs
 
@@ -108,10 +109,8 @@ retried automatically and succeeded.
    to start: `python scripts/121_verify_engine_equivalence.py --count 1000 --receipt artifacts/engine_equivalence_v5.json`
    A fresh v5 generation computing four real roads (accepted, held early,
    held mid-primary, held in the finer pass) reproduced v4's results exactly.
-3. Double-click **Launch Calculation Monitor v5.cmd** in the outer project folder
-   (or the launcher inside `quiet-uk-v5-engine`); the window title says v5. Press
-   Start / Resume. Command line: `python scripts/calculation_monitor.py --action start --workers 5`.
-   This folder's `.venv` is a directory junction to the main checkout's environment.
-   Either monitor refuses to start while the other generation's calculation runs.
+3. Double-click **Launch Calculation Monitor.cmd**; the window title says v5.
+   Press Start / Resume. Command line: `python scripts/calculation_monitor.py --action start --workers 5`.
+   The monitor refuses to start while another generation's calculation runs.
    On a fresh generation the monitor first runs the engine's own `--plan-only`
    step (about 15 minutes) in a separate process.

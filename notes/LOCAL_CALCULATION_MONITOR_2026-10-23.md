@@ -63,7 +63,7 @@ when memory runs low. The worker limit is chosen after Save & Stop.
 ## Execution and provenance
 
 `scripts/calculation_monitor.py` is an external execution controller. It loads
-the original, byte-unchanged script 119 and uses its `prepare`, `compute`,
+script 119 (byte-unchanged for v4; the v5 engine since 3 November) and uses its `prepare`, `compute`,
 `progress` and `close_run` functions, plus its point functions for staged
 chunks. `src/quiet_uk/calculation_scheduling.py` reproduces the engine's
 coordinates; tests check it against `integrate_adaptive` itself, and it
@@ -75,7 +75,8 @@ effort is in `prefetch_receipts.jsonl` (a road's `elapsed_seconds` covers only
 its final engine call when its points were calculated in chunks).
 
 Controls, worker heartbeats, staged chunks, status and logs live in
-`artifacts/local_calculation_control/`, outside the run generation. A Windows
+`artifacts/local_calculation_control_v5/` (v4: `local_calculation_control/`),
+outside the run generation. A Windows
 file lock prevents two schedulers running together. Do not start the old
 script 119 launcher alongside this controller.
 
@@ -99,5 +100,5 @@ checks on copies of the run.
 
 Pinned files are hashed byte for byte. `.gitattributes` now checks text out
 with LF and stores four pinned files with mixed line endings exactly, so a
-fresh checkout reproduces all 93 v4 hashes. Never switch branches in a folder
+fresh checkout of tag `v4-run-pinned` reproduces all 93 v4 hashes. Never switch branches in a folder
 that holds an unsealed pinned run; use a separate `git worktree`.
