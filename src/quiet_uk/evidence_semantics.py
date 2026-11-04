@@ -22,6 +22,47 @@ CONTRACT = {
 }
 
 
+# Defra's reply to the 3 October 2026 request defines the published road/rail
+# encodings. Aircraft cutoffs are airport-specific and its grids carry no zeros.
+PROVIDER_REPLY = {
+    'note': 'notes/DEFRA_DATA_REQUEST_2026-10-03.md#provider-reply',
+    'retained_text': 'artifacts/provider_request_2026-10-03/reply-owner-pasted.txt',
+    'retained_text_sha256': '7f319ee0452d5beab058f8ceb9f41ae6799300e07a511a6d5f8c7c9d0fd236f1',
+    'zero': 'Numeric zero marks a calculated level below the threshold, set to 0.',
+    'nodata': '-96 is a no data value.',
+    'cutoffs': 'Applied without rounding and inclusive: 40 dB Lden is retained, as is 35 dB Lnight.',
+    'below_cutoff_values': 'Not held by Defra.',
+}
+ZERO_RULE_SOURCES = ('road', 'rail')
+
+
+def zero_rule(source, metric):
+    """The provider-defined zero bound for one layer, or None where zero stays unknown."""
+    if source not in ZERO_RULE_SOURCES:
+        return None
+    return {'status': 'verified', 'cutoff_db': 35 if metric == 'Lnight' else 40,
+            'evidence_ref': PROVIDER_REPLY['note'], 'evidence_sha256': PROVIDER_REPLY['retained_text_sha256'],
+            'zero_means': 'calculated level below an inclusive cutoff, so strictly below it'}
+
+
+CONTRACT_V2 = {
+    'version': 2, 'states': STATES,
+    'zero_encoding_status': 'provider_defined_for_road_and_rail',
+    'provider_reply': PROVIDER_REPLY,
+    'zero_rule_sources': list(ZERO_RULE_SOURCES),
+    'domain_status': 'zero_codes_are_calculated_cells; no_provider_mask_for_nodata',
+    'missing_value_policy': ('Road and rail zero codes are calculated levels below the inclusive reporting cutoff, '
+                             'so they are shown as an upper bound (under 40 dB, under 35 dB at night), never as a value. '
+                             'TIFF nodata (-96) has no published value and stays unknown. Aircraft zeros, if any, stay unknown. '
+                             'Outside the downloaded area is not a claim about the provider domain or sound level.'),
+    'bounds_note': CONTRACT['bounds_note'],
+    'display_missing': [
+        {'encoding': 'zero_code', 'label': 'Under {cutoff} dB · below the published cutoff', 'colour': '#d6ecea'},
+        {'encoding': 'tiff_nodata', 'label': 'No data · not published', 'colour': '#aab5c4'},
+    ],
+}
+
+
 def record_evidence(record, product, files):
     minimum = 35 if record['metric'] == 'Lnight' else 40
     aircraft = record['source'] == 'aircraft'
@@ -45,10 +86,11 @@ def record_evidence(record, product, files):
 
 
 def interpret(raw, *, inside, masked=False, domain=None, verified_zero_rule=None):
-    """Keep encoding separate from meaning. No deployed rule certifies numeric zero.
+    """Keep encoding separate from meaning.
 
-    A future censoring rule needs a finite cutoff, an explicit evidence reference,
-    and positive domain membership. A provider bounding box is not such evidence.
+    A censoring rule needs a finite cutoff, an explicit evidence reference, and
+    positive domain membership. A provider bounding box is not such evidence; the
+    provider's definition of zero as a calculated result is (see zero_rule).
     """
     bounds, value = None, None
     if not inside:
@@ -79,7 +121,7 @@ def interpret(raw, *, inside, masked=False, domain=None, verified_zero_rule=None
     explanation = STATES[status]
     label = explanation['label']
     if status == 'verified_below_cutoff':
-        label = f'<{bounds["upper_db"]:g} dB(A)'
+        label = f'Under {bounds["upper_db"]:g} dB(A)'
     return {'status': status, 'raw_encoding': encoding, 'value_db': value,
             'interpretation_evidence': dict(verified_zero_rule) if status == 'verified_below_cutoff' else None,
             'bounds': bounds, 'display_label': label, 'explanation': explanation['description']}

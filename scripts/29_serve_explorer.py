@@ -34,6 +34,9 @@ def main():
     if (expanded/'manifest.json').exists():
         regional = expanded
     parser.add_argument('--pilot', type=Path, default=regional if (regional/'manifest.json').exists() else ROOT/'artifacts/source_pilot_v1')
+    england = next((path for path in (ROOT/'artifacts/england_map_v1', ROOT/'artifacts/england_map_preview')
+                    if (path/'manifest.json').exists()), None)
+    parser.add_argument('--england', type=Path, default=england, help='England map release (default: newest installed)')
     args = parser.parse_args()
     if args.regional_only and args.build_only:
         parser.error('--regional-only cannot be combined with --build-only')
@@ -53,11 +56,13 @@ def main():
     explorer = None
     if not args.regional_only and all(p.exists() for p in (args.display/'dataset.json', args.catalogue/'catalogue.sqlite3', args.tiles, args.mask)):
         explorer = Explorer(args.display, args.catalogue, args.tiles, args.mask)
-    if pilot is None and explorer is None:
+    if pilot is None and explorer is None and args.england is None:
         parser.error('No local release found. Supply --pilot PATH to an extracted regional bundle. Historical data is built only with --build-only.')
+    if args.england is not None and not args.regional_only:
+        print('England map:', args.england.name, flush=True)
     print('Historical overview: available at /overview' if explorer else 'Regional mode: historical overview not installed or disabled.', flush=True)
     server = ExplorerServer(args.port, explorer, ROOT/'explorer', PlaceSearch(args.geocoder), pilot=pilot,
-                            observations=args.observations)
+                            observations=args.observations, england=None if args.regional_only else args.england)
     print(f'Quiet UK explorer: http://127.0.0.1:{server.server_port}', flush=True)
     try:
         server.serve_forever()

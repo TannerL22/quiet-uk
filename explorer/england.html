@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f7f1"><title>Quiet UK · England noise map</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/pilot.css">
+  <script src="/vendor/maplibre-gl.js" defer></script><script src="/england.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#inspect-centre">Skip to map inspection</a>
+  <header><a class="brand" href="/">quiet<span>uk</span></a><span class="edition">ENGLAND · 10 m</span><a href="/pilot">Oxford–London tools ↗</a></header>
+  <main>
+    <aside aria-label="Map controls and location evidence">
+      <p class="eyebrow">EXPLORE THE EVIDENCE</p><h1>Find your<br><em>quieter places.</em></h1>
+      <p class="intro">Modelled road, rail and aircraft noise across England, cell by 10 m cell.</p>
+      <section class="coverage-card" aria-label="Coverage"><strong id="coverage-title">Loading coverage…</strong><p id="coverage-note"></p></section>
+      <form id="search" role="search">
+        <label class="control-label" for="place">Find a place</label>
+        <div class="search-box"><input id="place" placeholder="Town, postcode or coordinates" autocomplete="off" disabled><button type="submit" id="search-button" aria-label="Search places" disabled>→</button></div>
+        <p id="search-status" role="status" class="small"></p>
+        <ul id="search-results" hidden aria-label="Place search results"></ul>
+      </form>
+      <fieldset id="sources" disabled><legend>Noise source</legend><label><input type="radio" name="source" value="road" checked>Road</label><label><input type="radio" name="source" value="rail">Rail</label><label><input type="radio" name="source" value="aircraft">Aircraft</label></fieldset>
+      <fieldset id="metrics" disabled><legend>Time indicator</legend><label><input type="radio" name="metric" value="Lden" checked>Daily average*</label><label><input type="radio" name="metric" value="Lday">Day</label><label><input type="radio" name="metric" value="Lnight">Night</label></fieldset>
+      <p id="source-scope" class="source-scope" role="status"></p>
+      <p id="metric-note" class="small"></p>
+      <div class="period"><span id="period">Loading source evidence…</span><a id="provider" target="_blank" rel="noopener">Provider record ↗</a></div>
+      <section class="inspection" aria-labelledby="point-title">
+        <p class="eyebrow">AT THIS POINT</p><h2 id="point-title" tabindex="-1">Select a place on the map</h2>
+        <p id="point-value" aria-live="polite">Click the map to read a 10 m cell.</p><p id="point-status" class="small"></p>
+        <details class="all-indicators" open><summary>All sources and time indicators</summary>
+        <table aria-label="Source and time comparison at selected point"><thead><tr><th scope="col">dB(A)</th><th scope="col">Lden</th><th scope="col">Day</th><th scope="col">Night</th></tr></thead><tbody id="comparison"></tbody></table>
+        <p class="small">“Under 40” is Defra's published bound: a calculated level below the cutoff. “Unknown” or — means no published value; not silence. Each cell is one source only; sources are not added together.</p>
+        </details>
+        <a id="point-download" class="download" hidden download>Download this point with its evidence ↓</a>
+      </section>
+      <details><summary>What this map can tell you</summary>
+        <p>These are Defra's Round 4 strategic noise maps: modelled annual averages at 4 m above ground, not today's sound or a measurement. The 10 m grid gives fine spatial detail; it does not establish 10 m accuracy.</p>
+        <p>Defra publishes road and rail levels from 40 dB (Lden, day) and 35 dB (night). Below that, Defra confirmed the model calculated a level but did not keep it, so those cells are shown as <strong>under 40 dB</strong> (under 35 dB at night). No finer value exists.</p>
+        <p>Aircraft is mapped only around airports. Blank map means not mapped, not quiet.</p>
+        <p>Zoomed out, each pixel shows the 10 m cell at its centre, so thin roads can be skipped. Zoom in to see every cell. Clicking always reads the original cell.</p>
+        <p id="transformation-note"></p>
+      </details>
+      <p class="credits">Defra, Crown copyright / database rights 2023–2024. <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener">Open Government Licence</a>. Basemap requests go to OpenFreeMap. Submitted place searches go to OpenStreetMap Nominatim; coordinate searches stay local. No analytics.</p>
+    </aside>
+    <section class="map-panel" aria-label="Interactive England noise map">
+      <div id="map"></div><span class="centre-crosshair" aria-hidden="true">+</span>
+      <div class="map-caption"><strong id="map-title">England</strong><span id="map-value">Click the map to read a 10 m cell</span><div class="map-actions"><button id="inspect-centre" disabled>Inspect map centre</button><button id="share-view" disabled>Copy view link</button><a href="#point-title">Point details ↓</a></div><span id="share-status" role="status"></span></div>
+      <p id="message" role="status" hidden></p>
+      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p id="unknown-legend"></p><p id="overlay-status" role="status"></p></div>
+    </section>
+  </main>
+  <noscript>JavaScript is required for the map.</noscript>
+</body>
+</html>

@@ -17,6 +17,7 @@ from .comparison import compare_places, comparison_csv
 from .serving_snapshot import RegionalSnapshot, COPY_CHUNK
 from .regional_display import RegionalDisplay
 from .independent_observations import IndependentObservations
+from .england_map import EnglandMap, LAYERS
 
 
 class PlaceSearch:
@@ -97,8 +98,10 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         explorer = self.server.explorer
         try:
             if url.path == '/api/app':
-                return self._json({'app': 'quiet-uk', 'interface_version': 4,
-                                   'default_view': 'regional' if self.server.pilot else 'overview',
+                england = self.server.england
+                return self._json({'app': 'quiet-uk', 'interface_version': 5,
+                                   'default_view': 'england' if england else 'regional' if self.server.pilot else 'overview',
+                                   'england_release': england.release_id if england else None,
                                    'regional_serving': 'private_snapshot_v1' if self.server.pilot else None,
                                    'regional_release': self.server.pilot.manifest['release_id'] if self.server.pilot else None,
                                    'overview_release': explorer.manifest['release_id'] if explorer else None,
@@ -119,6 +122,44 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                 if url.path == '/overview':
                     return self._send(b'<h1>Historical overview not installed</h1><p>The detailed regional map is available independently.</p><a href="/">Open Quiet UK</a>', 'text/html; charset=utf-8', 404)
                 return self._json({'error': 'Historical overview not installed. Use the detailed regional map.', 'code': 'overview_unavailable'}, 404)
+            if url.path.startswith(('/api/england', '/downloads/england', '/england-tiles/', '/england-cells/')):
+                england = self.server.england
+                if england is None:
+                    return self._json({'error': 'The England map has not been built on this machine.'}, 404)
+                if url.path == '/api/england':
+                    return self._json(england.manifest)
+                if url.path in ('/api/england/location', '/downloads/england-location.json'):
+                    if set(params) not in ({'lon', 'lat'}, {'lon', 'lat', 'release'}) or any(len(v) != 1 for v in params.values()):
+                        raise ValueError('Supply one longitude and latitude')
+                    if 'release' in params and params['release'][0] != england.release_id:
+                        return self._json({'error': 'This view uses another release. Reload to inspect the current evidence.',
+                                           'code': 'release_mismatch'}, 409)
+                    result = england.lookup(float(params['lon'][0]), float(params['lat'][0]))
+                    if url.path.startswith('/downloads/'):
+                        return self._send(json_bytes(result), 'application/json; charset=utf-8', filename=england.release_id+'-location.json')
+                    return self._json(result)
+                if url.path == '/api/england/cells':
+                    if set(params) != {'layer', 'bbox', 'release'} or any(len(v) != 1 for v in params.values()):
+                        raise ValueError('Supply one layer, bounding box and release')
+                    if params['release'][0] != england.release_id:
+                        return self._json({'error': 'This view uses another release.', 'code': 'release_mismatch'}, 409)
+                    bbox = [float(v) for v in params['bbox'][0].split(',')]
+                    if len(bbox) != 4:
+                        raise ValueError('Supply west,south,east,north')
+                    return self._json(england.cell_windows(params['layer'][0], *bbox))
+                cells = re.fullmatch(r'/england-cells/(england-map-[a-f0-9]{20})/([a-z]+-L[a-z]+)/(\d{1,4})/(\d{1,4})\.png', url.path)
+                if cells and cells[1] == england.release_id and cells[2] in LAYERS:
+                    data = england.cell_image(cells[2], int(cells[3]), int(cells[4]))
+                    if data is None:
+                        return self._send(b'', 'image/png', status=204, cache='no-store')
+                    return self._send(data, 'image/png', cache='public, max-age=86400, immutable')
+                tile = re.fullmatch(r'/england-tiles/(england-map-[a-f0-9]{20})/([a-z]+-L[a-z]+)/(\d{1,2})/(\d{1,6})/(\d{1,6})\.png', url.path)
+                if tile and tile[1] == england.release_id and tile[2] in LAYERS:
+                    data = england.tile(tile[2], *map(int, tile.groups()[2:]))
+                    if data is None:
+                        return self._send(b'', 'image/png', status=204, cache='public, max-age=86400')
+                    return self._send(data, 'image/png', cache='public, max-age=86400, immutable')
+                return self._json({'error': 'Unknown England map resource'}, 404)
             if url.path.startswith(('/api/pilot', '/downloads/pilot', '/pilot-images/')):
                 pilot = self.server.pilot
                 if pilot is None:
@@ -187,7 +228,9 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                 if tile[1] != explorer.manifest['release_id']:
                     return self._json({'error': 'Unknown dataset generation'}, 404)
                 return self._send(explorer.tile(*map(int, tile.groups()[2:]), mode=tile[2]), 'image/png', cache='public, max-age=3600')
-            assets = {'/': ('pilot.html' if self.server.pilot else 'index.html', 'text/html; charset=utf-8'),
+            home = 'england.html' if self.server.england else 'pilot.html' if self.server.pilot else 'index.html'
+            assets = {'/': (home, 'text/html; charset=utf-8'),
+                      '/england': ('england.html', 'text/html; charset=utf-8'), '/england.js': ('england.js', 'text/javascript'),
                       '/overview': ('index.html', 'text/html; charset=utf-8'),
                       '/pilot': ('pilot.html', 'text/html; charset=utf-8'),
                       '/pilot.js': ('pilot.js', 'text/javascript'), '/pilot.css': ('pilot.css', 'text/css'),
@@ -217,9 +260,10 @@ class ExplorerServer(ThreadingHTTPServer):
     # Wait for in-flight requests before removing their private data files.
     daemon_threads = False
 
-    def __init__(self, port, explorer, asset_root, search=None, pilot=None, observations=None):
+    def __init__(self, port, explorer, asset_root, search=None, pilot=None, observations=None, england=None):
         self.explorer, self.asset_root = explorer, Path(asset_root)
         self.search = search or PlaceSearch()
+        self.england = None
         self.pilot = None
         self.regional_display = None
         self.observations = None
@@ -229,6 +273,7 @@ class ExplorerServer(ThreadingHTTPServer):
             self.observations = IndependentObservations(observations) if observations is not None else None
             self.pilot = RegionalSnapshot(pilot) if pilot is not None else None
             self.regional_display = RegionalDisplay(self.pilot) if self.pilot else None
+            self.england = EnglandMap(england) if england is not None else None
         except BaseException:
             super().server_close()
             if self.pilot is not None:
@@ -239,6 +284,8 @@ class ExplorerServer(ThreadingHTTPServer):
         super().server_close()
         if self.pilot is not None:
             self.pilot.close()
+        if self.england is not None:
+            self.england.close()
 
     def get_request(self):
         connection, address = super().get_request()

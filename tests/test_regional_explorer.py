@@ -62,9 +62,10 @@ def test_cli_starts_without_national_files(pilot, tmp_path, monkeypatch, regiona
     calls = []
     class Server:
         server_port = 8766
-        def __init__(self, port, explorer, assets, search, pilot, observations=None):
+        def __init__(self, port, explorer, assets, search, pilot, observations=None, england=None):
             assert explorer is None
             assert observations is None
+            assert england is None
             from quiet_uk.serving_snapshot import RegionalSnapshot
             # The CLI delegates verification to the private-copy constructor.
             assert isinstance(pilot, Path)

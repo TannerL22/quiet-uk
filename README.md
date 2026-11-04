@@ -3,7 +3,16 @@
 Quiet UK is a general-purpose map for understanding mapped environmental noise.
 Homes, walks, travel and research are possible uses of the same product.
 
-**Current phase, 2 October 2026:** a working local 10 m regional explorer with
+**Now, 3 November 2026: all of England at 10 m.** The download of every Defra
+Round 4 road, rail and aircraft grid for England is running (1,495 squares of
+10 km, 13,455 rasters). The launcher opens a new England map that grows as squares
+arrive. Zoom in to see each 10 m cell; click to read the original value and its
+evidence. Defra has confirmed that a zero is a calculated level below the cutoff,
+so the map shows those cells as **under 40 dB** (under 35 dB at night) instead of
+unknown. [How the England map works](notes/ENGLAND_MAP.md) ·
+[Defra's reply](notes/DEFRA_DATA_REQUEST_2026-10-03.md#provider-reply).
+
+**Earlier phase, 2 October 2026:** a working local 10 m regional explorer with
 coverage outlines, source/time controls, place and coordinate search, keyboard
 point inspection, saved comparisons and evidence downloads. It runs independently
 of the optional historical England-wide 100 m overview. Wider UK noise coverage
@@ -34,8 +43,9 @@ reported patches; it does not fill unknown cells.
 The [provider extraction audit](notes/PROVIDER_ENCODING_AND_EXTRACTION_AUDIT.md)
 now replays offline from checked-in captures. Successful interior checks agree;
 coverage-edge changes and unavailable protocol comparisons remain explicit.
-Provider zero/domain definitions are still unresolved, so no additional quietness
-bounds have been assigned.
+Defra has since defined zero (calculated, below the cutoff) and nodata. The
+England map applies this as evidence contract v2. Older releases keep v1, where
+zero is unknown.
 
 In the 10 m explorer, select a point and **Add to comparison**. Save and name up
 to three places, then **Compare places** to see all nine source/time indicators
@@ -161,7 +171,7 @@ contract version 2 and does not overwrite earlier display generations.
 
 | Present | Still ahead |
 |---|---|
-| 5,000 km² detailed map plus optional provisional England overview | Wales, Scotland and Northern Ireland noise integration |
+| England-wide 10 m map (download in progress) plus the 5,000 km² Oxford–London tools | Wales, Scotland and Northern Ireland noise integration |
 | Versioned assets, source-linked regional data and evidence exports | National source-linked construction and independent validation |
 | Explicit unknown states, source scope and aircraft limitations | Defensible distinctions between below-threshold quiet places |
 | Responsive explorer, saved three-place comparisons, evidence exports and local-view sharing | User-tested workflows, broader detailed coverage and optional context layers |

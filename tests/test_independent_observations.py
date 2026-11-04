@@ -88,7 +88,7 @@ def test_observations_http_contract_and_query_rejection(tmp_path):
     base=f'http://127.0.0.1:{server.server_port}'
     try:
         app=requests.get(base+'/api/app').json()
-        assert app['interface_version']==4 and app['observations_release']==manifest['release_id']
+        assert app['interface_version']==5 and app['observations_release']==manifest['release_id']
         data=requests.get(base+'/api/observations').json()
         assert data['locations']['features'][0]['properties']['sample_count']==1
         assert 'observations' not in data

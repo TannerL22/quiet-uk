@@ -3,9 +3,12 @@
 Status: **sent on 3 October 2026** through the connected Gmail account; Gmail
 returned a message/thread ID and the `SENT` label. The sent message was read
 back: recipient, subject and HTML body match the saved outbound request. Its
-timestamp is **09:29 BST on 3 October**. Provider response and data
-availability are pending. The owner approved step 1: pursue unthresholded Defra
-outputs and calculation-domain/encoding definitions.
+timestamp is **09:29 BST on 3 October**. The owner approved step 1: pursue
+unthresholded Defra outputs and calculation-domain/encoding definitions.
+
+**Reply received (recorded 3 November 2026).** Defra answered all four questions;
+see [Provider reply](#provider-reply). Zero now has a provider definition, and the
+England map shows road and rail zeros as *under 40 dB* (*under 35 dB* at night).
 
 **Owner-reported update, 3 October:** an acknowledgement says a response may take
 a few days. This is recorded from the owner's message, not independently verified
@@ -96,3 +99,47 @@ domain or identify a specific cell as below threshold.
 The original broader extraction/airport questions remain in
 [the previous draft](PROVIDER_CLARIFICATION_DRAFT.md). This focused enquiry
 supersedes that draft as the initial data-access request.
+
+## Provider reply
+
+The owner pasted Defra's reply into the project on 3 November 2026. The text is
+kept outside Git at `artifacts/provider_request_2026-10-03/reply-owner-pasted.txt`
+(SHA-256 `7f319ee0452d5beab058f8ceb9f41ae6799300e07a511a6d5f8c7c9d0fd236f1`).
+The original email bytes were not saved; keep the email itself if possible.
+Summary of the reply's four answers:
+
+1. **Unthresholded outputs:** Defra does not hold data below the cutoffs. Its
+   reason is that accuracy below them cannot be guaranteed, because of artefacts
+   from the calculation efficiency settings that were required.
+2. **Calculation domain:** Defra does not hold a domain mask. Results were
+   interpolated across buildings by the calculation software (LimA) so that the
+   published grids are continuous. The source-distance limits were 2 km for rail
+   and 3 km for road.
+3. **Zero and nodata:** `-96` is the nodata value. *Numeric zero values indicate
+   where calculated levels below the thresholds have been set to 0.* Results keep
+   2 decimal places without rounding. The cutoffs are inclusive and applied
+   without rounding, so 40 dB Lden and 35 dB Lnight are still published.
+4. **Combined transport product:** Defra aims to publish it shortly. It is
+   calculated below the source-specific reporting cutoffs.
+
+### What changed
+
+- Evidence contract **v2** (`src/quiet_uk/evidence_semantics.py`, `CONTRACT_V2`,
+  `zero_rule`): a road or rail zero is a calculated level **strictly below**
+  40 dB (Lden, Lday) or 35 dB (Lnight). It is an upper bound, never a value.
+  The zero itself shows that the cell was calculated, so the rule needs no
+  separate domain mask.
+- `-96` and TIFF nodata stay *unknown*: no published value, and no claim of quiet.
+- Aircraft is unchanged. Its grids use nodata, not zero, and airport cutoffs are
+  not established.
+- Older releases keep evidence contract v1, where zero is unknown. They are not
+  reinterpreted.
+
+### Still open
+
+- Below-cutoff values do not exist, so quieter places can only be bounded.
+  Finer levels need our own calculation or measurements.
+- No domain mask exists, so nodata cannot be split into "outside the
+  source-distance limit" and other omissions.
+- Watch for the combined transport product. It will need its own review before
+  use, because it combines sources below their individual cutoffs.

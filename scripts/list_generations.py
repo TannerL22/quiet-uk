@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = ROOT / 'artifacts'
 NOTE = ROOT / 'notes/CURRENT_GENERATIONS.md'
 # Releases scripts/29_serve_explorer.py and launch_quiet_uk.ps1 open, in preference order.
-APP = ['oxford_london_map_v1', 'tiled_map_v2', 'source_regions_v2', 'source_regions_v1', 'source_pilot_v1',
+APP = ['england_map_v1', 'england_map_preview', 'oxford_london_map_v1', 'tiled_map_v2', 'source_regions_v2', 'source_regions_v1', 'source_pilot_v1',
        'recorded_sound_v3', 'explorer_display_v4']
 CALCULATIONS = ['real_road_reflection_calculation_v5', 'real_road_reflection_calculation_v4']
 VERSION = re.compile(r'^(?P<stem>.+)_v(?P<version>\d+)$')
@@ -33,6 +33,9 @@ def main():
     for name in APP:
         if name in names:
             roles.setdefault(name, 'app release')
+            acquisition = (read(ARTIFACTS / name / 'manifest.json') or {}).get('acquisition', {}).get('path')
+            if acquisition and Path(acquisition).name in names:
+                roles.setdefault(Path(acquisition).name, f'input of {name}')
     inputs = {}
     sealed_calculation = next((n for n in CALCULATIONS if (ARTIFACTS / n / 'inventory.json').exists()), None)
     for name in CALCULATIONS:
@@ -56,7 +59,9 @@ def main():
     rows = []
     for folder in folders:
         name = folder.name
-        sealed = (folder / 'inventory.json').exists()
+        # An England-style acquisition keeps the provider catalogue in inventory.json; its seal is manifest.json.
+        acquisition = (folder / 'plan.json').exists() and (folder / 'records').is_dir()
+        sealed = (folder / ('manifest.json' if acquisition else 'inventory.json')).exists()
         match = VERSION.match(name)
         if name in roles:
             role = roles[name]

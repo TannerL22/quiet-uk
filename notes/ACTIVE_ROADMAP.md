@@ -5,6 +5,28 @@ current delivery order; older plans and dated implementation reports are evidenc
 not competing task lists. See [the finding-by-finding assessment and detailed
 plan](PROJECT_STOCKTAKE_2026-09-28.md).
 
+## Update, 3 November 2026: finish England
+
+The owner's goal is a map of human (transport) noise everywhere, as detailed and
+accurate as possible, with research-grade values. Defra replied to the 3 October
+request: no data below the cutoffs exists. Zero means a calculated level below an
+inclusive cutoff, and `-96` is nodata. Steps now:
+
+1. **Done:** the zero rule is recorded as evidence contract v2. The England map
+   shows road and rail zeros as under 40 dB (under 35 dB at night).
+   [Reply and changes](DEFRA_DATA_REQUEST_2026-10-03.md#provider-reply).
+2. **Running:** native 10 m download of all England (1,495 squares, 13,455 rasters,
+   Oxford–London reused). The England map, close-up cells, point evidence and
+   launcher are delivered and tested on the preview.
+   [England map](ENGLAND_MAP.md).
+3. **Next:** seal the download, build and verify `england_map_v1`, and back up
+   `artifacts/` off this machine. Positions now use Ordnance Survey's OSTN15 grid
+   (installed 4 November 2026).
+4. **Later:** Scotland, Wales and Northern Ireland adapters. Our own calculation
+   engine (v5) is parked; it is the route to values below the cutoffs.
+
+The older ordering below is kept as history.
+
 ## Current priority: real evidence before estimated gaps
 
 Prioritise additional qualified source data, then bounded statistical/acoustic
