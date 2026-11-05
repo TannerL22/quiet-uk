@@ -29,6 +29,26 @@ def validate_places(places, sites):
     return cleaned
 
 
+def difference(base, o, same_evidence):
+    """Place minus first place for one source and indicator, or a bound, or a reason there is none."""
+    delta, same_cell, bounds = None, None, None
+    if base['status'] not in ('reported_model_value', 'verified_below_cutoff') or o['status'] not in ('reported_model_value', 'verified_below_cutoff'):
+        status = 'unreported_or_outside'
+    elif not base['reference_period'] or not o['reference_period']:
+        status = 'reference_period_unspecified'
+    elif not same_evidence:
+        status = 'incompatible_evidence'
+    elif base['status'] == 'verified_below_cutoff' or o['status'] == 'verified_below_cutoff':
+        bounds = difference_bounds(base, o)
+        status = 'comparable_model_bounds' if bounds else 'bounds_do_not_rank'
+    else:
+        status = 'comparable_model_values'
+        delta = o['value_db'] - base['value_db']
+        # Geometry also recognises shared cells in overlapping areas.
+        same_cell = o['cell'] == base['cell']
+    return {'difference_from_first_db': delta, 'status': status, 'same_native_cell': same_cell, 'difference_bounds_db': bounds}
+
+
 def compare_places(pilot, places, release_id):
     if release_id != pilot.manifest['release_id']:
         raise ValueError('Comparison release changed; choose places from the current release')
@@ -43,24 +63,9 @@ def compare_places(pilot, places, release_id):
         for metric in pilot.manifest['metrics']:
             observations = [next(o for o in p['observations'] if o['source'] == source and o['metric'] == metric) for p in locations]
             base = observations[0]
-            differences = []
-            for o in observations[1:]:
-                delta, same_cell, bounds = None, None, None
-                if base['status'] not in ('reported_model_value', 'verified_below_cutoff') or o['status'] not in ('reported_model_value', 'verified_below_cutoff'):
-                    status = 'unreported_or_outside'
-                elif not base['reference_period'] or not o['reference_period']:
-                    status = 'reference_period_unspecified'
-                elif base['reference_period'] != o['reference_period'] or base['coverage_id'] != o['coverage_id'] or base['units'] != o['units']:
-                    status = 'incompatible_evidence'
-                elif base['status'] == 'verified_below_cutoff' or o['status'] == 'verified_below_cutoff':
-                    bounds = difference_bounds(base, o)
-                    status = 'comparable_model_bounds' if bounds else 'bounds_do_not_rank'
-                else:
-                    status = 'comparable_model_values'
-                    delta = o['value_db'] - base['value_db']
-                    # Geometry also recognises shared cells in overlapping areas.
-                    same_cell = o['cell'] == base['cell']
-                differences.append({'difference_from_first_db': delta, 'status': status, 'same_native_cell': same_cell, 'difference_bounds_db': bounds})
+            differences = [difference(base, o, base['reference_period'] == o['reference_period']
+                                      and base['coverage_id'] == o['coverage_id'] and base['units'] == o['units'])
+                           for o in observations[1:]]
             rows.append({'source': source, 'metric': metric, 'units': 'dB(A)',
                          'reference_period': product['reference_period'],
                          'reference_period_status': product['reference_period_status'],
@@ -119,4 +124,95 @@ def comparison_csv(result):
                 'reporting_cutoff_db': o['reporting_cutoff_db'] if result['schema_version'] == 2 else result['reporting_cutoff_db'][o['metric']],
                 'difference_from_first_db': difference.get('difference_from_first_db'),
                 'difference_status': difference['status'], 'same_native_cell': difference.get('same_native_cell')})
+    return output.getvalue().encode('utf-8-sig')
+
+
+def validate_england_places(places):
+    if not isinstance(places, list) or not 1 <= len(places) <= 3:
+        raise ValueError('Choose one to three places')
+    cleaned, seen = [], set()
+    for place in places:
+        if not isinstance(place, dict) or set(place) != {'longitude', 'latitude', 'label'}:
+            raise ValueError('Each place needs longitude, latitude and label')
+        lon, lat, label = (place[k] for k in ('longitude', 'latitude', 'label'))
+        if any(isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x) for x in (lon, lat)) or not (-180 <= lon <= 180 and -90 <= lat <= 90):
+            raise ValueError('Comparison coordinates must be finite longitude/latitude in range')
+        if not isinstance(label, str) or not 1 <= len(label.strip()) <= 60 or any(ord(c) < 32 or ord(c) == 127 for c in label):
+            raise ValueError('Place names must contain 1–60 characters without control characters')
+        if (lon, lat) in seen:
+            raise ValueError('This point is already in the comparison')
+        seen.add((lon, lat))
+        cleaned.append({**place, 'label': label.strip()})
+    return cleaned
+
+
+def compare_england(england, places, release_id):
+    """Saved England places side by side, re-read from the verified release."""
+    if release_id != england.release_id:
+        raise ValueError('Comparison release changed; reload to compare with the current release')
+    places = validate_england_places(places)
+    locations = [{'label': p['label'], **england.lookup(p['longitude'], p['latitude'])} for p in places]
+    if any(p['release_id'] != release_id for p in locations):
+        raise CatalogueIntegrityError('Comparison contains mixed releases')
+    manifest = england.manifest
+    rows = []
+    for source, product in manifest['products'].items():
+        for metric in manifest['metrics']:
+            observations = [next(o for o in p['observations'] if o['source'] == source and o['metric'] == metric) for p in locations]
+            base = observations[0]
+            rows.append({'source': source, 'metric': metric, 'units': 'dB(A)',
+                         'reference_period': product['reference_period'],
+                         'reference_period_status': product['reference_period_status'],
+                         'observations': observations,
+                         'differences_from_first': [difference(base, o, base['reference_period'] == o['reference_period']
+                                                               and base['units'] == o['units']) for o in observations[1:]]})
+    return {'schema': 'quiet-uk-england-comparison', 'schema_version': 1, 'release_id': release_id,
+            'places': locations, 'rows': rows,
+            'spatial_resolution_m': manifest['spatial_resolution_m'], 'receiver_height_m': manifest['receiver_height_m'],
+            'evidence_contract': manifest['evidence_contract'], 'uncertainty': manifest['uncertainty'],
+            'unavailable': manifest['unavailable'], 'products': manifest['products'],
+            'licence': manifest['licence'], 'licence_url': manifest['licence_url'], 'attribution': manifest['attribution'],
+            'interpretation': ('Differences are place minus first place, within one source and indicator with a declared '
+                               'matching reference period. They are model differences, not measured change, a combined '
+                               'sound level, or a quietness ranking. Unreported values stay null; values below the cutoff '
+                               'give bounds only. Full cell precision is retained.')}
+
+
+def england_comparison_csv(result):
+    """One exact observation per row, with its evidence; empty values always carry a status."""
+    import json
+    output = io.StringIO(newline='')
+    fields = ['release_id', 'place', 'longitude', 'latitude', 'easting', 'northing', 'source', 'metric',
+              'value_db', 'raw_value', 'status', 'units', 'reporting_cutoff_db', 'bounds_json',
+              'reference_period_start', 'reference_period_end', 'reference_period_status',
+              'record_tile', 'record_sha256', 'record_path', 'http_record', 'row', 'column', 'cell_geojson',
+              'difference_from_first_db', 'difference_status', 'same_native_cell', 'difference_bounds_json',
+              'evidence_contract_version', 'spatial_resolution_m', 'receiver_height_m', 'missing_value_policy',
+              'uncertainty', 'licence_url', 'attribution']
+    writer = csv.DictWriter(output, fieldnames=fields)
+    writer.writeheader()
+    for index, place in enumerate(result['places']):
+        label = place['label']
+        if label.lstrip().startswith(('=', '+', '-', '@')):
+            label = "'" + label  # Never let a place name run as a spreadsheet formula.
+        for row in result['rows']:
+            o = row['observations'][index]
+            period, record = o['reference_period'] or {}, o['record'] or {}
+            diff = row['differences_from_first'][index - 1] if index else {'status': 'baseline'}
+            writer.writerow({
+                'release_id': result['release_id'], 'place': label,
+                **{k: place[k] for k in ('longitude', 'latitude', 'easting', 'northing', 'missing_value_policy', 'uncertainty')},
+                **{k: o[k] for k in ('source', 'metric', 'value_db', 'raw_value', 'status', 'units', 'reporting_cutoff_db',
+                                     'reference_period_status', 'row', 'column')},
+                'bounds_json': json.dumps(o['bounds'], separators=(',', ':')),
+                'reference_period_start': period.get('start'), 'reference_period_end': period.get('end'),
+                'record_tile': record.get('tile'), 'record_sha256': record.get('sha256'), 'record_path': record.get('path'),
+                'http_record': record.get('http_record'),
+                'cell_geojson': json.dumps(o['cell'], separators=(',', ':')) if o['cell'] else '',
+                'difference_from_first_db': diff.get('difference_from_first_db'), 'difference_status': diff['status'],
+                'same_native_cell': diff.get('same_native_cell'),
+                'difference_bounds_json': json.dumps(diff.get('difference_bounds_db')),
+                'evidence_contract_version': place['evidence_contract_version'],
+                'spatial_resolution_m': result['spatial_resolution_m'], 'receiver_height_m': result['receiver_height_m'],
+                'licence_url': result['licence_url'], 'attribution': result['attribution']})
     return output.getvalue().encode('utf-8-sig')

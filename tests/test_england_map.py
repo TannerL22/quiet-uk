@@ -1,12 +1,15 @@
 """England map: display pixels and point lookups read the same owning native cell."""
+import csv
 import hashlib
 import io
 import json
 from pathlib import Path
 import shutil
 import sqlite3
+import struct
 import threading
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 import warnings
 
@@ -21,6 +24,7 @@ from quiet_uk import england_acquisition as ea
 from quiet_uk import england_map as m
 from quiet_uk.evidence_semantics import CONTRACT_V2, PROVIDER_REPLY, interpret, zero_rule
 from quiet_uk.explorer_server import ExplorerServer
+from quiet_uk.map_presentation import THEMES, VERSION, palette, recolour
 from quiet_uk.source_pilot import BREAKS
 
 ROOT = Path(__file__).parents[1]
@@ -318,13 +322,20 @@ def test_server_routes_tiles_cells_and_point_evidence(built):
     try:
         app = json.load(urlopen(base+'/api/app'))
         release = app['england_release']
-        assert app['default_view'] == 'england' and app['interface_version'] == 5 and release.startswith('england-map-')
+        assert app['default_view'] == 'england' and app['interface_version'] == 6 and release.startswith('england-map-')
         assert b'england.js' in urlopen(base+'/').read() and b'england.js' in urlopen(base+'/england').read()
-        assert json.load(urlopen(base+'/api/england'))['release_id'] == release
         england = server.england
+        manifest = json.load(urlopen(base+'/api/england'))
+        assert manifest['release_id'] == release and manifest['presentation']['version'] == VERSION
+        assert manifest['display'] == england.manifest['display']  # The stored palette is still published.
         layer, z, x, y = england.db.execute('SELECT layer, z, x, y FROM tile_index WHERE z = 14 LIMIT 1').fetchone()
         tile = urlopen(f'{base}/england-tiles/{release}/{layer}/{z}/{x}/{y}.png')
-        assert tile.status == 200 and tile.read() == england.tile(layer, z, x, y)
+        assert tile.status == 200 and tile.read() == recolour(england.tile(layer, z, x, y), 'light')
+        dark = urlopen(f'{base}/england-tiles/{release}/{layer}/{z}/{x}/{y}.png?theme=dark').read()
+        assert dark == recolour(england.tile(layer, z, x, y), 'dark')
+        with pytest.raises(HTTPError) as caught:
+            urlopen(f'{base}/england-tiles/{release}/{layer}/{z}/{x}/{y}.png?theme=neon')
+        assert caught.value.code == 400
         assert urlopen(f'{base}/england-tiles/{release}/{layer}/14/1/1.png').status == 204
         with pytest.raises(HTTPError) as caught:
             urlopen(f'{base}/england-tiles/england-map-{"0"*20}/{layer}/{z}/{x}/{y}.png')
@@ -343,6 +354,85 @@ def test_server_routes_tiles_cells_and_point_evidence(built):
         with pytest.raises(HTTPError) as caught:
             urlopen(Request(base+'/api/england', headers={'Origin': 'http://example.com'}))
         assert caught.value.code == 403
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def png_chunks(data):
+    at, chunks = 8, []
+    while at < len(data):
+        length, kind = struct.unpack('>I4s', data[at:at + 8])
+        chunks.append((kind, data[at + 8:at + 8 + length]))
+        at += 12 + length
+    return chunks
+
+
+def test_recolouring_swaps_only_the_palette(built):
+    england = m.EnglandMap(built)
+    layer, z, x, y = england.db.execute('SELECT layer, z, x, y FROM tile_index WHERE z = 14 LIMIT 1').fetchone()
+    stored = england.tile(layer, z, x, y)
+    stored_image = Image.open(io.BytesIO(stored))
+    for theme in THEMES:
+        assert len(palette(theme)) == len(england.manifest['display']['palette_rgba'])
+        served = recolour(stored, theme)
+        before, after = png_chunks(stored), png_chunks(served)
+        assert [k for k, _ in before] == [k for k, _ in after]
+        unchanged = lambda chunks: [d for k, d in chunks if k not in (b'PLTE', b'tRNS')]
+        assert unchanged(before) == unchanged(after)  # IHDR and IDAT byte for byte: every cell keeps its class.
+        image = Image.open(io.BytesIO(served))
+        image.load()  # Fails on a bad chunk checksum.
+        assert image.mode == 'P' and np.array_equal(np.asarray(image), np.asarray(stored_image))
+        rgb = image.getpalette()[:36]
+        assert [tuple(rgb[i:i + 3]) for i in range(0, 36, 3)] == [c[:3] for c in palette(theme)]
+        assert list(image.info['transparency']) == [c[3] for c in palette(theme)]
+    assert england.tile(layer, z, x, y) == stored  # Stored tiles are never rewritten.
+    buffer = io.BytesIO()
+    Image.new('RGBA', (4, 4)).save(buffer, 'PNG')
+    with pytest.raises(ValueError, match='indexed'):
+        recolour(buffer.getvalue(), 'light')
+    with pytest.raises(ValueError, match='PNG'):
+        recolour(b'not a png', 'light')
+
+
+def test_server_compares_saved_places_with_full_evidence(built):
+    server = ExplorerServer(0, None, ROOT/'explorer', england=built)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    base = f'http://127.0.0.1:{server.server_port}'
+    try:
+        england = server.england
+        release = england.release_id
+        home, work = lonlat(england, 534405, TOP - 25), lonlat(england, 535405, TOP - 25)
+        places = [{'longitude': home[0], 'latitude': home[1], 'label': '=Home'},
+                  {'longitude': work[0], 'latitude': work[1], 'label': 'Work'}]
+        query = urlencode({'places': json.dumps(places), 'release': release})
+        result = json.load(urlopen(f'{base}/api/england/comparison?{query}'))
+        assert result['schema'] == 'quiet-uk-england-comparison' and result['release_id'] == release
+        assert [p['label'] for p in result['places']] == ['=Home', 'Work'] and len(result['rows']) == 9
+        rows = {(r['source'], r['metric']): r for r in result['rows']}
+        road = rows['road', 'Lden']
+        a, b = road['observations']
+        assert a == next(o for o in england.lookup(*home)['observations'] if o['source'] == 'road' and o['metric'] == 'Lden')
+        assert road['differences_from_first'][0]['status'] == 'comparable_model_values'
+        assert road['differences_from_first'][0]['difference_from_first_db'] == pytest.approx(b['value_db'] - a['value_db'])
+        # The first place is outside the aircraft data, so no difference is claimed.
+        assert rows['aircraft', 'Lden']['differences_from_first'][0]['difference_from_first_db'] is None
+        download = urlopen(f'{base}/downloads/england-comparison.csv?{query}')
+        assert 'attachment' in download.headers['Content-Disposition']
+        table = list(csv.DictReader(io.StringIO(download.read().decode('utf-8-sig'))))
+        assert len(table) == 2 * 9 and {r['record_sha256'] for r in table if r['status'] == 'reported_model_value'}
+        assert [r['place'] for r in table[::9]] == ["'=Home", 'Work']  # Never a live spreadsheet formula.
+        exported = json.load(urlopen(f'{base}/downloads/england-comparison.json?{query}'))
+        assert exported == result
+        for bad, code in [({'places': json.dumps(places * 2), 'release': release}, 400),
+                          ({'places': json.dumps([places[0], places[0]]), 'release': release}, 400),
+                          ({'places': 'not json', 'release': release}, 400),
+                          ({'places': json.dumps(places)}, 400),
+                          ({'places': json.dumps(places), 'release': 'england-map-' + '0' * 20}, 409)]:
+            with pytest.raises(HTTPError) as caught:
+                urlopen(f'{base}/api/england/comparison?{urlencode(bad)}')
+            assert caught.value.code == code
     finally:
         server.shutdown()
         server.server_close()

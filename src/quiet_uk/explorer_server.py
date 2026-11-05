@@ -13,11 +13,12 @@ import requests
 
 from .explorer import json_bytes
 from .catalogue import CatalogueIntegrityError, CatalogueError
-from .comparison import compare_places, comparison_csv
+from .comparison import compare_england, compare_places, comparison_csv, england_comparison_csv
 from .serving_snapshot import RegionalSnapshot, COPY_CHUNK
 from .regional_display import RegionalDisplay
 from .independent_observations import IndependentObservations
 from .england_map import EnglandMap, LAYERS
+from .map_presentation import THEMES, presentation, recolour
 
 
 class PlaceSearch:
@@ -99,7 +100,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         try:
             if url.path == '/api/app':
                 england = self.server.england
-                return self._json({'app': 'quiet-uk', 'interface_version': 5,
+                return self._json({'app': 'quiet-uk', 'interface_version': 6,
                                    'default_view': 'england' if england else 'regional' if self.server.pilot else 'overview',
                                    'england_release': england.release_id if england else None,
                                    'regional_serving': 'private_snapshot_v1' if self.server.pilot else None,
@@ -127,7 +128,20 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                 if england is None:
                     return self._json({'error': 'The England map has not been built on this machine.'}, 404)
                 if url.path == '/api/england':
-                    return self._json(england.manifest)
+                    # The manifest unchanged, plus how this interface colours and words it.
+                    return self._json({**england.manifest, 'presentation': presentation()})
+                if url.path in ('/api/england/comparison', '/downloads/england-comparison.json', '/downloads/england-comparison.csv'):
+                    if set(params) != {'places', 'release'} or any(len(v) != 1 for v in params.values()) or len(params['places'][0]) > 2500:
+                        raise ValueError('Supply one bounded place list and release')
+                    if params['release'][0] != england.release_id:
+                        return self._json({'error': 'This comparison uses another release. Reload to compare the current evidence.',
+                                           'code': 'release_mismatch'}, 409)
+                    result = compare_england(england, json.loads(params['places'][0]), params['release'][0])
+                    if url.path.endswith('.csv'):
+                        return self._send(england_comparison_csv(result), 'text/csv; charset=utf-8', filename=england.release_id+'-comparison.csv')
+                    if url.path.endswith('.json'):
+                        return self._send(json_bytes(result), 'application/json; charset=utf-8', filename=england.release_id+'-comparison.json')
+                    return self._json(result)
                 if url.path in ('/api/england/location', '/downloads/england-location.json'):
                     if set(params) not in ({'lon', 'lat'}, {'lon', 'lat', 'release'}) or any(len(v) != 1 for v in params.values()):
                         raise ValueError('Supply one longitude and latitude')
@@ -147,18 +161,22 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                     if len(bbox) != 4:
                         raise ValueError('Supply west,south,east,north')
                     return self._json(england.cell_windows(params['layer'][0], *bbox))
+                theme = params.get('theme', ['light'])
+                if len(theme) != 1 or theme[0] not in THEMES:
+                    raise ValueError('Unknown map theme')
+                theme = theme[0]
                 cells = re.fullmatch(r'/england-cells/(england-map-[a-f0-9]{20})/([a-z]+-L[a-z]+)/(\d{1,4})/(\d{1,4})\.png', url.path)
                 if cells and cells[1] == england.release_id and cells[2] in LAYERS:
                     data = england.cell_image(cells[2], int(cells[3]), int(cells[4]))
                     if data is None:
                         return self._send(b'', 'image/png', status=204, cache='no-store')
-                    return self._send(data, 'image/png', cache='public, max-age=86400, immutable')
+                    return self._send(recolour(data, theme), 'image/png', cache='public, max-age=86400, immutable')
                 tile = re.fullmatch(r'/england-tiles/(england-map-[a-f0-9]{20})/([a-z]+-L[a-z]+)/(\d{1,2})/(\d{1,6})/(\d{1,6})\.png', url.path)
                 if tile and tile[1] == england.release_id and tile[2] in LAYERS:
-                    data = england.tile(tile[2], *map(int, tile.groups()[2:]))
+                    data = england.tile(tile[2], *map(int, tile.groups()[2:]))  # Checked against its stored hash.
                     if data is None:
                         return self._send(b'', 'image/png', status=204, cache='public, max-age=86400')
-                    return self._send(data, 'image/png', cache='public, max-age=86400, immutable')
+                    return self._send(recolour(data, theme), 'image/png', cache='public, max-age=86400, immutable')
                 return self._json({'error': 'Unknown England map resource'}, 404)
             if url.path.startswith(('/api/pilot', '/downloads/pilot', '/pilot-images/')):
                 pilot = self.server.pilot
@@ -231,6 +249,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             home = 'england.html' if self.server.england else 'pilot.html' if self.server.pilot else 'index.html'
             assets = {'/': (home, 'text/html; charset=utf-8'),
                       '/england': ('england.html', 'text/html; charset=utf-8'), '/england.js': ('england.js', 'text/javascript'),
+                      '/england.css': ('england.css', 'text/css'), '/england-places.js': ('england-places.js', 'text/javascript'),
                       '/overview': ('index.html', 'text/html; charset=utf-8'),
                       '/pilot': ('pilot.html', 'text/html; charset=utf-8'),
                       '/pilot.js': ('pilot.js', 'text/javascript'), '/pilot.css': ('pilot.css', 'text/css'),

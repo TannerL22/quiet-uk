@@ -3,11 +3,13 @@
 Quiet UK is a general-purpose map for understanding mapped environmental noise.
 Homes, walks, travel and research are possible uses of the same product.
 
-**Now, 3 November 2026: all of England at 10 m.** The download of every Defra
-Round 4 road, rail and aircraft grid for England is running (1,495 squares of
-10 km, 13,455 rasters). The launcher opens a new England map that grows as squares
-arrive. Zoom in to see each 10 m cell; click to read the original value and its
-evidence. Defra has confirmed that a zero is a calculated level below the cutoff,
+**Now, 5 November 2026: all of England at 10 m.** Every Defra Round 4 road, rail
+and aircraft grid for England is downloaded, checked and mapped (1,495 squares of
+10 km, 13,455 rasters). The launcher opens the England map. Search for a place or
+click anywhere to see how loud it is, in decibels and in plain words, against the
+WHO's guideline. Zoom in to see each 10 m cell. Save up to three places to compare
+them. **For researchers** holds the full evidence for each spot and the downloads.
+Defra has confirmed that a zero is a calculated level below the cutoff,
 so the map shows those cells as **under 40 dB** (under 35 dB at night) instead of
 unknown. [How the England map works](notes/ENGLAND_MAP.md) ·
 [Defra's reply](notes/DEFRA_DATA_REQUEST_2026-10-03.md#provider-reply).
@@ -47,7 +49,9 @@ Defra has since defined zero (calculated, below the cutoff) and nodata. The
 England map applies this as evidence contract v2. Older releases keep v1, where
 zero is unknown.
 
-In the 10 m explorer, select a point and **Add to comparison**. Save and name up
+The England map has its own saved places and comparison, described in
+[the map note](notes/ENGLAND_MAP.md#interface). In the Oxford–London explorer
+(`/pilot`), select a point and **Add to comparison**. Save and name up
 to three places, then **Compare places** to see all nine source/time indicators
 side by side. Places persist in your browser; values are re-read from verified
 originals. Download exact observations as CSV or JSON, or copy a release-specific
@@ -84,15 +88,17 @@ From this directory on the existing Windows environment:
 .\.venv\Scripts\python.exe scripts\29_serve_explorer.py
 ```
 
-Open **http://127.0.0.1:8766/**. The installed 10 m regional map is the home
-page when a regional release is installed. **Show all areas** reveals its coverage;
+Open **http://127.0.0.1:8766/**. The England map is the home page when it is
+installed. It follows the device's light or dark mode and works on phones. The
+Oxford–London explorer is at **/pilot**, and is the home page when only a regional
+release is installed. There, **Show all areas** reveals its coverage;
 **Inspect map centre** supports keyboard use. The selected source/time value is
 shown first, with the nine-indicator table under **All sources and time indicators**.
 View links preserve the source, metric, point, camera, overlay visibility and release.
 Recording links also preserve the selected site and recording release. The launcher
 discovers `artifacts/recorded_sound_v3` when installed; use `--observations PATH`
 for another qualified recording release. Restart an older running server before
-using the updated launcher (interface version 4).
+using the updated launcher (interface version 6).
 
 To reproduce the optional recording layer and gap evaluation:
 
@@ -171,7 +177,7 @@ contract version 2 and does not overwrite earlier display generations.
 
 | Present | Still ahead |
 |---|---|
-| England-wide 10 m map (download in progress) plus the 5,000 km² Oxford–London tools | Wales, Scotland and Northern Ireland noise integration |
+| England-wide 10 m map plus the 5,000 km² Oxford–London tools | Wales, Scotland and Northern Ireland noise integration |
 | Versioned assets, source-linked regional data and evidence exports | National source-linked construction and independent validation |
 | Explicit unknown states, source scope and aircraft limitations | Defensible distinctions between below-threshold quiet places |
 | Responsive explorer, saved three-place comparisons, evidence exports and local-view sharing | User-tested workflows, broader detailed coverage and optional context layers |

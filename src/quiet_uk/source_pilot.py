@@ -362,22 +362,46 @@ def acquire(root, sites=None):
     return products, selected_sites, records
 
 
+# The coordinate operation every Oxford–London display was drawn with: British National
+# Grid -> OSGB36 to WGS 84 (6), a 7-parameter Helmert stated to 2 m -> Web Mercator. GDAL and
+# PROJ chose it when no transformation grid was installed. It is pinned, not chosen at run
+# time, because GDAL and pyproj pick operations separately: once OS's OSTN15 grid was
+# installed (4 November 2026), pyproj moved to it (about 2 m away) while GDAL did not, and
+# the mixed result opened seams between display tiles and stopped sealed releases from
+# reproducing byte for byte. Display only: analytical cells are never warped. The England
+# map pins its own operation (OSTN15) separately.
+DISPLAY_OPERATION = (
+    '+proj=pipeline +step +inv +proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy '
+    '+step +proj=push +v_3 +step +proj=cart +ellps=airy '
+    '+step +proj=helmert +x=446.448 +y=-125.157 +z=542.06 +rx=0.15 +ry=0.247 +rz=0.842 +s=-20.489 +convention=position_vector '
+    '+step +inv +proj=cart +ellps=WGS84 +step +proj=pop +v_3 '
+    '+step +proj=webmerc +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84')
+
+
+def display_transformer():
+    """British National Grid -> Web Mercator for displays; use direction='INVERSE' to go back."""
+    from pyproj import Transformer
+    return Transformer.from_pipeline(DISPLAY_OPERATION)
+
+
 def display_image(path, *, evidence_version=None, core_bounds=None):
     """A nearest-cell Web Mercator display; analytical files are never warped."""
     with rasterio.open(path) as ds:
         require_identity_encoding(ds)
+        if ds.crs is None or ds.crs.to_epsg() != 27700:
+            raise ValueError('Displays are drawn from British National Grid sources only')
         if core_bounds is None:
-            t, width, height = calculate_default_transform(ds.crs, 'EPSG:3857', ds.width, ds.height, *ds.bounds)
+            t, width, height = calculate_default_transform(ds.crs, 'EPSG:3857', ds.width, ds.height, *ds.bounds,
+                                                           COORDINATE_OPERATION=DISPLAY_OPERATION)
             pixel_origin = (0, 0)
             window = None
             source_transform = ds.transform
         else:
             # All tiles share one Mercator pixel lattice. Crop halos before
             # nearest-cell warping so a display pixel has exactly one owner.
-            from rasterio.warp import transform_bounds
             from rasterio.transform import from_origin
             import math
-            w, s, e, n = transform_bounds(ds.crs, 'EPSG:3857', *core_bounds, densify_pts=21)
+            w, s, e, n = display_transformer().transform_bounds(*core_bounds, densify_pts=21)
             left, bottom, right, top = math.floor(w/10), math.floor(s/10), math.ceil(e/10), math.ceil(n/10)
             t, width, height = from_origin(left*10, top*10, 10, 10), right-left, top-bottom
             pixel_origin = (left, -top)
@@ -390,7 +414,7 @@ def display_image(path, *, evidence_version=None, core_bounds=None):
         warped = np.full((height, width), -9999., dtype='float64')
         reproject(data, warped, src_transform=source_transform, src_crs=ds.crs,
                   dst_transform=t, dst_crs='EPSG:3857', dst_nodata=-9999,
-                  resampling=Resampling.nearest)
+                  resampling=Resampling.nearest, COORDINATE_OPERATION=DISPLAY_OPERATION)
         if core_bounds is not None:
             # Independent GDAL warps can disagree by a pixel at a core edge.
             # Correct a four-pixel belt around every validity transition using
@@ -410,10 +434,8 @@ def display_image(path, *, evidence_version=None, core_bounds=None):
                 expanded[1:] |= edge[:-1]; expanded[:-1] |= edge[1:]
                 expanded[:,1:] |= edge[:,:-1]; expanded[:,:-1] |= edge[:,1:]
                 edge = expanded
-            from pyproj import Transformer
-            projection = Transformer.from_crs('EPSG:3857', ds.crs, always_xy=True)
             yy,xx = np.nonzero(edge)
-            xs,ys = projection.transform(t.c+(xx+.5)*10, t.f-(yy+.5)*10)
+            xs,ys = display_transformer().transform(t.c+(xx+.5)*10, t.f-(yy+.5)*10, direction='INVERSE')
             cols = np.floor((xs-source_transform.c)/10).astype('int64')
             rows = np.floor((source_transform.f-ys)/10).astype('int64')
             inside = (cols>=0)&(cols<data.shape[1])&(rows>=0)&(rows<data.shape[0])

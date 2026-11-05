@@ -1,9 +1,10 @@
 # England map at native 10 m — 3 November 2026
 
-Quiet UK's 10 m explorer is growing from the 5,000 km² Oxford–London footprint to
-all of England, using Defra's Round 4 road, rail and aircraft noise grids. This
-note covers the download, the map built from it, how its accuracy is protected, and
-what is still running.
+Quiet UK's 10 m explorer has grown from the 5,000 km² Oxford–London footprint to
+all of England, using Defra's Round 4 road, rail and aircraft noise grids. The
+download sealed and the full map was built and verified on 5 November 2026. This
+note covers the download, the map built from it, how its accuracy is protected, the
+interface, and what is not done yet.
 
 ## In one paragraph
 
@@ -66,8 +67,10 @@ roughly 40–50 GB of transfer. Progress is logged to
   bound, never a value. `-96` and TIFF nodata stay **no data**. Aircraft is mapped
   around airports only; outside its grids the map is blank, which means not mapped,
   not quiet.
-- **Colours.** These are the existing Quiet UK bands (8 colours, 40–70+ dB), a pale
-  teal for under the cutoff, and a light hatch for no data.
+- **Colours.** Tiles are stored with the palette they were built and verified with:
+  the earlier Quiet UK bands (8 colours, 40–70+ dB), a pale teal for under the
+  cutoff, and a light hatch for no data. That palette stays in the manifest. The
+  page shows a different palette; see [Interface](#interface).
 
 ### Integrity
 
@@ -123,6 +126,11 @@ Before OSTN15, the map used the Helmert transformation *OSGB36 to WGS 84 (6)*
 Noise values were never affected. Only two things were: where cells are drawn on the
 basemap, and which cell a click near a cell edge lands in.
 
+Installing the grid also moved `pyproj`'s choice for the older Oxford–London display
+images but not GDAL's, which opened seams between their tiles. Those displays now
+pin the operation they were built with; see
+[the tiled map note](TILED_MAP.md#pinned-coordinate-operation-5-november-2026).
+
 ## Use
 
 ```text
@@ -132,22 +140,67 @@ python scripts/124_build_england_map.py --verify
 ```
 
 The launcher opens the England map by default. It uses `england_map_v1` when present,
-otherwise the preview. Oxford–London tools such as saved comparisons and the
-evidence ZIP stay at `/pilot`.
+otherwise the preview. The Oxford–London explorer, with its regional evidence ZIP
+and original comparison workflow, stays at `/pilot`.
 
 Measured on this laptop:
 
 - **Preview** (90 squares): 33 blocks, about 3 minutes with 6 workers, 106 MB.
   With OSTN15 (218 squares, built while the download ran): 7 minutes, 202 MB,
   `--verify` 1.5 minutes.
-- **Full map** (projected): about 350 blocks, 30–40 minutes, about 1.5 GB.
+- **Full map** (5 November 2026): 328 blocks, 750,480 tiles, 1.4 GB, 80 minutes;
+  `--verify` 32 minutes. Release `england-map-69928c8a2ecdb96ac33c`, built from the
+  sealed download `england-0f4eb6e6cb6e2dd82687`.
 - **Clicks:** about 0.4 s for the first click in a square, 1 ms after that.
+
+## Interface
+
+Rebuilt on 5 November 2026 so that someone with no background in acoustics can use
+it. Nothing the research side relies on was removed: the specialist detail moved
+into a **For researchers** section, and the table below says where each item went.
+Files: `explorer/england.html`, `england.js`, `england-places.js`, `england.css`,
+and `src/quiet_uk/map_presentation.py`.
+
+- **Search** goes to the best match on Enter, with other matches under "Not this
+  one?". Nominatim's usage policy rules out search-as-you-type. Typed coordinates
+  are read in the page and never sent anywhere.
+- **Clicking a spot** shows the level, a plain word for its band, and where it sits
+  against the WHO's 2018 guideline for that source (road 53 dB Lden / 45 dB night,
+  rail 54 / 44, aircraft 45 / 40). **Details** lists every source and time for that
+  spot.
+- **Band words** (`map_presentation.WORDS`): Very quiet (under 40), Quiet, Fairly
+  quiet, Moderate, Noticeable, Loud, Very loud, Extremely loud (70+). At night they
+  apply 10 dB lower, matching the night weighting inside Lden. The words describe the
+  level only; the health comparison comes from the WHO values.
+- **Colours** (`display-v2-violet`): one violet hue, lighter for quieter, with its
+  own steps for light and dark mode. Both ramps pass the palette validator's ordinal
+  checks: lightness falls steadily, steps stay apart under colour-blindness, and the
+  quiet end stands out from the basemap. Tiles are recoloured when served
+  (`?theme=light|dark`) by swapping only the PNG's palette chunks. The pixel data,
+  and so every cell's class, is byte-identical to the stored, hash-checked tile.
+  Tests check this.
+- **Saved places:** up to three, compared side by side with the differences in plain
+  words. Levels are always re-read from the release (`/api/england/comparison`).
+  The CSV and JSON downloads keep full precision, file hashes, cell outlines and
+  cutoffs.
+- **Phone:** a full-screen map with a sheet that slides up. **Dark mode** follows
+  the device.
+
+| Research item | Where it is now |
+|---|---|
+| What Lden, Lday and Lnight mean | For researchers → Indicators |
+| Reference periods, provider records, grid, release, evidence contract, licence, missing-value policy, uncertainty | For researchers → Data and coverage |
+| How the map is drawn (nearest-cell sampling, exact cells from zoom 15.5, OSTN15) and the palette note | For researchers → How the map is drawn |
+| Selected spot: National Grid position, Defra square, status, stored value, native row and column, record SHA-256, archive, transformation; JSON download | For researchers → Selected spot evidence |
+| Check the spot at the map centre; copy view link | For researchers → Tools (Enter on the focused map also checks the centre) |
+| Recorded sound samples (London) | For researchers → Tools, when that release is installed |
+| Stored palette | `/api/england` → `display.palette_rgba`, unchanged; the page palette is under `presentation` |
+| Oxford–London explorer, regional evidence bundles, original comparison workflow | `/pilot`, linked from For researchers |
 
 ## Not yet done
 
-- Finish the download, then seal it, build `england_map_v1` and verify it. A Claude
-  app update stopped the first run on 3 November at 1,801 of 13,455 rasters. It
-  resumed on 4 November, launched independently of the app, with about 14 hours left.
+- Clicked spots show their position rather than a street name. A local copy of OS
+  Open Names would add names without sending clicks anywhere.
 - Back up `artifacts/` off this machine (e.g. Google Cloud Storage).
 - Scotland, Wales and Northern Ireland need their own providers and adapters.
 - Values below the cutoffs do not exist at Defra. Quieter places can only be bounded

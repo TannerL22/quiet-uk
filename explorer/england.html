@@ -1,56 +1,207 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f7f7f1"><title>Quiet UK · England noise map</title>
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/pilot.css">
-  <script src="/vendor/maplibre-gl.js" defer></script><script src="/england.js" defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#171a18" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="How loud is road, rail and aircraft noise where you are? Defra's official noise maps for every 10 metre square of England.">
+  <title>Quiet UK · England noise map</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232d5946'/%3E%3Cpath d='M9 20c2-5 4-8 7-8s5 3 7 8' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="/england.css">
+  <script src="/vendor/maplibre-gl.js" defer></script>
+  <script src="/england-places.js" defer></script>
+  <script src="/england.js" defer></script>
 </head>
 <body>
-  <a class="skip-link" href="#inspect-centre">Skip to map inspection</a>
-  <header><a class="brand" href="/">quiet<span>uk</span></a><span class="edition">ENGLAND · 10 m</span><a href="/pilot">Oxford–London tools ↗</a></header>
-  <main>
-    <aside aria-label="Map controls and location evidence">
-      <p class="eyebrow">EXPLORE THE EVIDENCE</p><h1>Find your<br><em>quieter places.</em></h1>
-      <p class="intro">Modelled road, rail and aircraft noise across England, cell by 10 m cell.</p>
-      <section class="coverage-card" aria-label="Coverage"><strong id="coverage-title">Loading coverage…</strong><p id="coverage-note"></p></section>
-      <form id="search" role="search">
-        <label class="control-label" for="place">Find a place</label>
-        <div class="search-box"><input id="place" placeholder="Town, postcode or coordinates" autocomplete="off" disabled><button type="submit" id="search-button" aria-label="Search places" disabled>→</button></div>
-        <p id="search-status" role="status" class="small"></p>
-        <ul id="search-results" hidden aria-label="Place search results"></ul>
-      </form>
-      <fieldset id="sources" disabled><legend>Noise source</legend><label><input type="radio" name="source" value="road" checked>Road</label><label><input type="radio" name="source" value="rail">Rail</label><label><input type="radio" name="source" value="aircraft">Aircraft</label></fieldset>
-      <fieldset id="metrics" disabled><legend>Time indicator</legend><label><input type="radio" name="metric" value="Lden" checked>Daily average*</label><label><input type="radio" name="metric" value="Lday">Day</label><label><input type="radio" name="metric" value="Lnight">Night</label></fieldset>
-      <p id="source-scope" class="source-scope" role="status"></p>
-      <p id="metric-note" class="small"></p>
-      <div class="period"><span id="period">Loading source evidence…</span><a id="provider" target="_blank" rel="noopener">Provider record ↗</a></div>
-      <section class="inspection" aria-labelledby="point-title">
-        <p class="eyebrow">AT THIS POINT</p><h2 id="point-title" tabindex="-1">Select a place on the map</h2>
-        <p id="point-value" aria-live="polite">Click the map to read a 10 m cell.</p><p id="point-status" class="small"></p>
-        <details class="all-indicators" open><summary>All sources and time indicators</summary>
-        <table aria-label="Source and time comparison at selected point"><thead><tr><th scope="col">dB(A)</th><th scope="col">Lden</th><th scope="col">Day</th><th scope="col">Night</th></tr></thead><tbody id="comparison"></tbody></table>
-        <p class="small">“Under 40” is Defra's published bound: a calculated level below the cutoff. “Unknown” or — means no published value; not silence. Each cell is one source only; sources are not added together.</p>
+  <a class="skip-link" href="#place">Skip to place search</a>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Quiet UK, start again">quiet<span>uk</span></a>
+    <span class="topbar-tag">England · road, rail and aircraft noise</span>
+    <div class="topbar-actions"><button id="open-help" class="ghost-button" type="button">How to read this map</button></div>
+  </header>
+
+  <div class="app">
+    <aside id="panel" class="panel" data-state="peek" aria-label="Search, map options and results">
+      <button class="sheet-handle" id="sheet-handle" type="button" aria-expanded="false" aria-controls="panel-body"><span class="visually-hidden">Show more options and results</span></button>
+      <div class="panel-body" id="panel-body">
+        <section class="intro">
+          <h1>How loud is it <em>where you are?</em></h1>
+          <p>Road, rail and aircraft noise for every 10&nbsp;metre square of England, from Defra's official noise maps.</p>
+        </section>
+
+        <form id="search" class="search" role="search">
+          <label class="visually-hidden" for="place">Search for a place</label>
+          <div class="search-field">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input id="place" type="search" placeholder="Town, street, postcode or coordinates" autocomplete="off" enterkeyhint="search" spellcheck="false">
+            <button type="submit" id="search-button" aria-label="Search"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+          <p id="search-status" class="hint" role="status"></p>
+          <ul id="search-results" class="search-results" hidden aria-label="Other matching places"></ul>
+        </form>
+
+        <section class="controls" aria-label="What the map shows">
+          <fieldset class="segmented" id="sources">
+            <legend>Noise from</legend>
+            <div class="options">
+              <label><input type="radio" name="source" value="road" checked><span>Road</span></label>
+              <label><input type="radio" name="source" value="rail"><span>Rail</span></label>
+              <label><input type="radio" name="source" value="aircraft"><span>Aircraft</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="segmented" id="metrics">
+            <legend>Time of day</legend>
+            <div class="options">
+              <label><input type="radio" name="metric" value="Lden" checked><span>24-hour</span></label>
+              <label><input type="radio" name="metric" value="Lday"><span>Daytime</span></label>
+              <label><input type="radio" name="metric" value="Lnight"><span>Night</span></label>
+            </div>
+          </fieldset>
+          <p id="layer-note" class="hint"></p>
+        </section>
+
+        <section id="spot" class="spot" aria-labelledby="spot-title" hidden>
+          <p class="eyebrow">Selected spot</p>
+          <h2 id="spot-title" tabindex="-1"></h2>
+          <div class="spot-reading"><span id="spot-value" class="spot-value" aria-live="polite"></span><span id="spot-level" class="level-chip"></span></div>
+          <p id="spot-explain"></p>
+          <p id="spot-who" class="who"></p>
+          <div class="spot-actions">
+            <button id="save-place" class="button" type="button" data-save-place>Save to compare</button>
+            <button id="share-view" class="button button-quiet" type="button">Copy link</button>
+          </div>
+          <p id="share-status" class="hint" role="status"></p>
+          <h3>Every source and time here</h3>
+          <table class="readings" aria-label="Noise at this spot by source and time of day, in decibels">
+            <thead><tr><th scope="col"><span class="visually-hidden">Source</span></th><th scope="col">24-hour</th><th scope="col">Daytime</th><th scope="col">Night</th></tr></thead>
+            <tbody id="readings"></tbody>
+          </table>
+          <p class="hint">Levels in dB. Select one to show it on the map. Sources are mapped separately and not added together. “—” means no published value, which is not the same as quiet.</p>
+        </section>
+
+        <section id="places" class="places" aria-labelledby="places-title">
+          <div class="section-head"><h2 id="places-title">Your places</h2><span id="places-count" class="hint">0 of 3</span></div>
+          <p id="places-status" class="hint" role="status">Save up to three spots to compare them side by side.</p>
+          <ol id="saved-places" class="saved-places"></ol>
+          <div class="places-actions">
+            <button id="open-comparison" class="button" type="button" disabled>Compare places</button>
+            <button id="clear-places" class="text-button" type="button" hidden>Clear all</button>
+          </div>
+        </section>
+
+        <details class="more" id="about">
+          <summary>About this map</summary>
+          <div class="more-body">
+            <p>These are Defra's official strategic noise maps for England, made with a computer model for the year 2021. They show the <strong>average</strong> level over a whole year, 4&nbsp;metres above the ground. They are not live sound and not measurements.</p>
+            <ul>
+              <li><strong>Darker means louder.</strong> Every 10&nbsp;dB step sounds roughly twice as loud.</li>
+              <li><strong>Each source is separate.</strong> Road, rail and aircraft are mapped one at a time and are not added together.</li>
+              <li><strong>“Under 40 dB”</strong> (under 35 at night) means Defra's model worked out a level below that, but the exact number isn't published.</li>
+              <li><strong>Grey stripes or blank</strong> mean no published value. That is not the same as quiet.</li>
+              <li><strong>Aircraft noise</strong> is only mapped around major airports.</li>
+            </ul>
+            <p><button class="text-button" type="button" data-open-help>Read the full guide</button></p>
+          </div>
         </details>
-        <a id="point-download" class="download" hidden download>Download this point with its evidence ↓</a>
-      </section>
-      <details><summary>What this map can tell you</summary>
-        <p>These are Defra's Round 4 strategic noise maps: modelled annual averages at 4 m above ground, not today's sound or a measurement. The 10 m grid gives fine spatial detail; it does not establish 10 m accuracy.</p>
-        <p>Defra publishes road and rail levels from 40 dB (Lden, day) and 35 dB (night). Below that, Defra confirmed the model calculated a level but did not keep it, so those cells are shown as <strong>under 40 dB</strong> (under 35 dB at night). No finer value exists.</p>
-        <p>Aircraft is mapped only around airports. Blank map means not mapped, not quiet.</p>
-        <p>Zoomed out, each pixel shows the 10 m cell at its centre, so thin roads can be skipped. Zoom in to see every cell. Clicking always reads the original cell.</p>
-        <p id="transformation-note"></p>
-      </details>
-      <p class="credits">Defra, Crown copyright / database rights 2023–2024. <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener">Open Government Licence</a>. Basemap requests go to OpenFreeMap. Submitted place searches go to OpenStreetMap Nominatim; coordinate searches stay local. No analytics.</p>
+
+        <details class="more" id="research">
+          <summary>For researchers</summary>
+          <div class="more-body">
+            <h3>Indicators</h3>
+            <dl class="research-list" id="research-indicators"></dl>
+            <h3>Data and coverage</h3>
+            <dl class="research-list" id="research-data"></dl>
+            <p id="research-policy"></p>
+            <h3>How the map is drawn</h3>
+            <ul id="research-drawing"></ul>
+            <h3>Selected spot evidence</h3>
+            <p id="research-spot-empty">Select a spot to see its native cell, record and checksum.</p>
+            <dl class="research-list" id="research-spot" hidden></dl>
+            <p><a id="point-download" class="button button-quiet" hidden download>Download this spot with its evidence (JSON)</a></p>
+            <h3>Tools</h3>
+            <div class="spot-actions">
+              <button id="inspect-centre-panel" class="button button-quiet" type="button">Check the spot at the map centre</button>
+              <button id="share-view-panel" class="button button-quiet" type="button">Copy view link</button>
+            </div>
+            <label class="check-row" id="recorded-row" hidden><input type="checkbox" id="recorded-toggle"><span>Show recorded sound samples <span id="recorded-count" class="hint"></span><br><span class="hint" id="recorded-status"></span></span></label>
+            <p><a href="/pilot">Open the older Oxford–London explorer</a>: earlier regional tools, release-pinned regional evidence bundles and the original comparison workflow.</p>
+          </div>
+        </details>
+
+        <p class="credits">
+          Noise data: Defra, Crown copyright 2023–2024, <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener">Open Government Licence v3.0</a>.
+          Basemap © OpenMapTiles © OpenStreetMap contributors, via OpenFreeMap.
+          Place searches you submit go to OpenStreetMap Nominatim; coordinates you type stay on this computer. No analytics.
+        </p>
+      </div>
     </aside>
-    <section class="map-panel" aria-label="Interactive England noise map">
-      <div id="map"></div><span class="centre-crosshair" aria-hidden="true">+</span>
-      <div class="map-caption"><strong id="map-title">England</strong><span id="map-value">Click the map to read a 10 m cell</span><div class="map-actions"><button id="inspect-centre" disabled>Inspect map centre</button><button id="share-view" disabled>Copy view link</button><a href="#point-title">Point details ↓</a></div><span id="share-status" role="status"></span></div>
-      <p id="message" role="status" hidden></p>
-      <div class="legend"><div class="legend-title"><strong id="legend-title">Modelled source noise · dB(A)</strong><label><input id="overlay" type="checkbox" checked> Show</label></div><div id="legend-scale"></div><div class="ticks"><span>35</span><span>40</span><span>45</span><span>50</span><span>55</span><span>60</span><span>65</span><span>70+</span></div><p id="unknown-legend"></p><p id="overlay-status" role="status"></p></div>
-    </section>
-  </main>
-  <noscript>JavaScript is required for the map.</noscript>
+
+    <main class="map-area" aria-label="Noise map">
+      <div id="map"></div>
+      <span class="crosshair" aria-hidden="true"></span>
+      <button id="inspect-centre" class="button centre-check" type="button">Check the spot at the map centre</button>
+      <div id="loading" class="loading" role="status"><span class="spinner" aria-hidden="true"></span><span id="loading-text">Loading the noise map…</span></div>
+      <p id="message" class="map-message" role="alert" hidden></p>
+      <div id="tip" class="tip" hidden><p>Search for a place, or click anywhere on the map to see how loud it is.</p><button id="dismiss-tip" type="button">Got it</button></div>
+      <section id="legend" class="legend" aria-labelledby="legend-title">
+        <div class="legend-head"><strong id="legend-title">Road noise · 24-hour average</strong><button type="button" id="legend-change" class="legend-change" aria-controls="panel-body">Change</button><label class="switch"><input id="overlay" type="checkbox" checked><span>Show</span></label></div>
+        <div id="legend-ramp" class="legend-ramp"></div>
+        <div class="legend-words"><span>Quieter</span><span>Louder</span></div>
+        <div id="legend-extra" class="legend-extra"></div>
+        <p id="overlay-status" class="hint" role="status"></p>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="help-dialog" aria-labelledby="help-title">
+    <div class="dialog-head"><h2 id="help-title">How to read this map</h2><button class="icon-button" type="button" data-close aria-label="Close">×</button></div>
+    <div class="dialog-body">
+      <p>The colours show how much transport noise reaches each 10&nbsp;metre square, as a <strong>yearly average</strong>. Defra worked these out with a computer model for 2021, 4&nbsp;metres above the ground (about first-floor window height).</p>
+      <h3>The colours</h3>
+      <table class="scale-table" id="help-scale"><tbody></tbody></table>
+      <p class="hint">The words are for the 24-hour and daytime averages. At night they apply 10&nbsp;dB lower (so 45&nbsp;dB at night counts as “Noticeable”, like 55&nbsp;dB in the day), matching the extra weight the 24-hour measure gives to night noise.</p>
+      <h3>Decibels in plain terms</h3>
+      <ul>
+        <li>Noise is measured in decibels (dB). The scale isn't linear: <strong>every 10&nbsp;dB sounds about twice as loud</strong>, and a 3&nbsp;dB change is about the smallest most people notice.</li>
+        <li>These are averages over a year. A quiet street with a few loud lorries can have the same average as a steady hum.</li>
+        <li>The World Health Organization recommends keeping average road noise below 53&nbsp;dB (24-hour) and 45&nbsp;dB at night. The map tells you when a spot is above that.</li>
+      </ul>
+      <h3>The three time options</h3>
+      <ul>
+        <li><strong>24-hour</strong> (Lden): the yearly average over the whole day, with evening noise counted 5&nbsp;dB louder and night noise 10&nbsp;dB louder, because noise bothers people more then.</li>
+        <li><strong>Daytime</strong> (Lday): the average from 7am to 7pm.</li>
+        <li><strong>Night</strong> (Lnight): the average from 11pm to 7am.</li>
+      </ul>
+      <h3>What the map can't tell you</h3>
+      <ul>
+        <li><strong>Each source is separate.</strong> Road, rail and aircraft are never added together here.</li>
+        <li><strong>Below 40&nbsp;dB</strong> (35 at night), Defra doesn't publish the exact level, so those places all look the same.</li>
+        <li><strong>No published value is not silence.</strong> Grey stripes mean Defra published nothing for that square.</li>
+        <li>Other sounds, such as people, industry, wind or birds, aren't included. Neither are single loud events.</li>
+        <li>A 10&nbsp;metre square is how finely the map is drawn, not a promise of 10&nbsp;metre accuracy.</li>
+      </ul>
+    </div>
+  </dialog>
+
+  <dialog id="comparison-dialog" aria-labelledby="comparison-title">
+    <div class="dialog-head"><h2 id="comparison-title">Compare your places</h2><button class="icon-button" type="button" data-close aria-label="Close">×</button></div>
+    <div class="dialog-body">
+      <p id="comparison-status" role="status"></p>
+      <div class="compare-table-wrap"><table class="compare-table" id="compare-table"></table></div>
+      <h3 id="comparison-focus"></h3>
+      <ul class="differences" id="comparison-differences"></ul>
+      <p class="hint">Differences are between Defra's modelled levels, not measurements. Where a level is only known to be under the cutoff, the difference is shown as a range.</p>
+      <div class="exports" id="comparison-exports" hidden>
+        <button id="copy-comparison" class="button button-quiet" type="button">Copy comparison link</button>
+        <a id="comparison-csv" class="button button-quiet" download>Download CSV</a>
+        <a id="comparison-json" class="button button-quiet" download>Download JSON</a>
+        <span id="comparison-share-status" class="hint" role="status"></span>
+      </div>
+    </div>
+  </dialog>
+  <noscript><p style="padding:16px">Quiet UK needs JavaScript to draw the map.</p></noscript>
 </body>
 </html>

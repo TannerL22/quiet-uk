@@ -3,8 +3,12 @@ import numpy as np
 from PIL import Image
 from rasterio.warp import transform
 
+from .source_pilot import display_transformer
+
 
 def check(release):
+    # The same pinned operation the displays were drawn with, so an installed grid cannot open false seams.
+    projection = display_transformer()
     records = {(r['tile'],r['source'],r['metric']):r for r in release.records.values() if r['site']=='canary'}
     expected_masks = {}
     def pixels(record):
@@ -34,7 +38,7 @@ def check(release):
                     indices=np.arange(start,stop)
                     xx=(x+indices%aa.shape[1]+.5)*10
                     yy=-(y+indices//aa.shape[1]+.5)*10
-                    xs,ys=transform('EPSG:3857','EPSG:27700',xx,yy)
+                    xs,ys=projection.transform(xx,yy,direction='INVERSE')
                     xs,ys=np.asarray(xs),np.asarray(ys)
                     expected.reshape(-1)[start:stop]=(xs>=w)&(xs<e)&(ys>s)&(ys<=n)
                 expected_masks[key]=expected

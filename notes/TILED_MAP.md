@@ -79,8 +79,9 @@ Each tile uses the same globally aligned 10 m Web Mercator display lattice.
 Interior pixels use GDAL nearest-cell sampling. A belt around core edges is
 inverse-projected with vectorized `pyproj`, then assigned to the containing native
 cell and core. This avoids projecting millions of unaffected interior pixels.
-Full-size checks independently project shared strips with GDAL and require no
-gaps or double opacity before the manifest can be published. This is display-only
+Full-size checks independently project shared strips and require no
+gaps or double opacity before the manifest can be published. Every one of these
+steps uses the same pinned coordinate operation (see below). This is display-only
 nearest-cell sampling; Mercator
 metres are not a claim of ground-level resolution or model accuracy. Hatching
 uses global pixel coordinates so its phase does not restart at tile edges.
@@ -91,6 +92,44 @@ Independent GDAL warps disagreed at one aircraft boundary. It is retained for
 diagnosis and is not selected by the launcher. The corrected derivative is
 `artifacts/tiled_map_v2`, using exact inverse pixel-centre sampling at core edges. Neither
 attempt changes the sealed analytical canary.
+
+### Pinned coordinate operation (5 November 2026)
+
+Every display step now uses one fixed operation, `source_pilot.DISPLAY_OPERATION`:
+British National Grid → *OSGB36 to WGS 84 (6)*, a 7-parameter Helmert stated to
+2 m → Web Mercator. GDAL and PROJ chose this operation, with no grid installed,
+when every Oxford–London display was built. The pinned operation covers the GDAL
+warp (its `COORDINATE_OPERATION` option), the canvas bounds, the edge belt and the
+seam check.
+
+**Why.** GDAL and `pyproj` choose operations separately. On 4 November 2026 OS's
+OSTN15 grid was installed for the [England map](ENGLAND_MAP.md#coordinate-accuracy).
+`pyproj` started using it, about 2.3 m away near Henley, while GDAL kept the
+Helmert. The display mixed the two: GDAL drew the interiors and `pyproj` the edge
+belts. As a result:
+
+- four core images no longer equalled one canvas, and the seam check found gaps
+  (four tests in `tests/test_tiled_release.py` failed on this laptop);
+- `--verify` could no longer redraw `oxford_london_map_v1` or `tiled_map_v2` byte
+  for byte.
+
+Hiding the grid made both problems disappear, which confirmed the cause.
+
+**Now.** The displays are the same whatever grids are installed. With OSTN15
+installed, `--verify` on `oxford_london_map_v1` (`pilot-ad6d31f2da1b0a754135`)
+redraws all 450 display images byte for byte. Its seam check covers 765 pairs and
+38,395,269 overlapping pixels, with no gaps and no double opacity. Samples of
+`tiled_map_v2`, `source_regions_v1`/`v2` and `source_pilot_v1` also redraw
+exactly. (`tiled_map_v1`, the unsealed failed attempt above, already differed
+before this change.) A test checks three things: the pinned definition matches
+EPSG's named operation, GDAL obeys it, and drawing never asks PROJ for its "best"
+operation.
+
+**Positions.** Display positions keep the Helmert's stated 2 m, as before; the
+England map uses OSTN15. Point lookups, site bounds and request URLs in these
+releases use GDAL's own choice, which is still the same Helmert. If GDAL ever
+starts finding grids itself, those would move by about 2 m and verification would
+report it.
 
 The browser draws all 25 core images for the selected wider area, with a single
 outer outline. Point clicks reuse existing map layers; source/metric/area changes

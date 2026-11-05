@@ -12,7 +12,7 @@ $ownsLock = $false
 function Test-QuietUK {
     try {
         $record = Invoke-RestMethod ($appUrl + 'api/app') -TimeoutSec 2
-        if ($record.app -ne 'quiet-uk' -or $record.interface_version -ne 5) { return $false }
+        if ($record.app -ne 'quiet-uk' -or $record.interface_version -ne 6) { return $false }
         # The server prefers the finished England map, then the preview, as 29_serve_explorer.py does.
         $englandManifestPath = Join-Path $projectRoot 'artifacts\england_map_v1\manifest.json'
         if (-not (Test-Path -LiteralPath $englandManifestPath)) { $englandManifestPath = Join-Path $projectRoot 'artifacts\england_map_preview\manifest.json' }

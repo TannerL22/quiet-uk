@@ -11,7 +11,8 @@ from PIL import Image
 import pytest
 import rasterio
 from rasterio.transform import from_origin
-from rasterio.warp import transform
+from rasterio.enums import Resampling
+from rasterio.warp import calculate_default_transform, reproject, transform
 from rasterio.io import MemoryFile
 from rasterio.windows import from_bounds
 
@@ -46,6 +47,40 @@ def test_display_four_cores_equal_single_canvas_without_gaps_or_double_opacity(t
             mosaic[window][present] = tile[present]
     assert owners.max() == 1
     assert np.array_equal(mosaic,whole)
+
+
+def test_display_operation_is_pinned_and_honoured(tmp_path, monkeypatch):
+    # Installing OS's OSTN15 grid moved pyproj's choice of operation but not GDAL's, which opened
+    # display seams and broke byte-for-byte reproduction. Displays must use one pinned operation.
+    import pyproj
+    from pyproj.transformer import TransformerGroup
+    named = next(t for t in TransformerGroup('EPSG:27700','EPSG:3857',always_xy=True).transformers
+                 if 'OSGB36 to WGS 84 (6)' in t.description)
+    pinned = p.display_transformer()
+    for east,north in [(465205,185205),(100000,20000),(650000,300000),(400000,1200000)]:
+        assert pinned.transform(east,north) == pytest.approx(named.transform(east,north), abs=1e-6)
+    # GDAL silently ignores an unknown option, so prove it obeys this one: a shifted operation must move the output.
+    shifted = p.DISPLAY_OPERATION.replace('+x=446.448','+x=946.448')
+    assert shifted != p.DISPLAY_OPERATION
+    source = np.arange(1600,dtype='float64').reshape(40,40)
+    target = from_origin(-118400,6721600,10,10)
+    def warp(operation):
+        out = np.full((60,60),-1.)
+        reproject(source,out,src_transform=from_origin(465005,185405,10,10),src_crs='EPSG:27700',
+                  dst_transform=target,dst_crs='EPSG:3857',dst_nodata=-1,resampling=Resampling.nearest,
+                  COORDINATE_OPERATION=operation)
+        return out
+    assert not np.array_equal(warp(p.DISPLAY_OPERATION),warp(shifted))
+    bounds = (465005,185005,465405,185405)
+    assert (calculate_default_transform('EPSG:27700','EPSG:3857',40,40,*bounds,COORDINATE_OPERATION=p.DISPLAY_OPERATION)
+            != calculate_default_transform('EPSG:27700','EPSG:3857',40,40,*bounds,COORDINATE_OPERATION=shifted))
+    # Drawing never asks PROJ for the "best" operation, which depends on the grids installed.
+    path = tmp_path/'source.tif'
+    with rasterio.open(path,'w',driver='GTiff',width=40,height=40,count=1,dtype='float32',nodata=-96,crs='EPSG:27700',transform=from_origin(465005,185405,10,10)) as ds:
+        ds.write(np.full((40,40),55.,dtype='float32'),1)
+    monkeypatch.setattr(pyproj.Transformer,'from_crs',lambda *a,**k: pytest.fail('display chose an operation at run time'))
+    p.display_image(path,evidence_version=1)
+    p.display_image(path,evidence_version=1,core_bounds=[465005,185005,465205,185205])
 
 
 @pytest.fixture
