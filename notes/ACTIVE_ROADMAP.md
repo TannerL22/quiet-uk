@@ -23,7 +23,14 @@ inclusive cutoff, and `-96` is nodata. Steps now:
    `artifacts/` off this machine. Positions now use Ordnance Survey's OSTN15 grid
    (installed 4 November 2026).
 4. **Later:** Scotland, Wales and Northern Ireland adapters. Our own calculation
-   engine (v5) is parked; it is the route to values below the cutoffs.
+   engine (v5) is parked.
+5. **Quiet places (5 November 2026):** NoiseModelling (open CNOSSOS-EU) was
+   checked against Defra near Heathrow. It does not yet pass: with published
+   open inputs the best setup reads about 2½ dB high, with a typical error of
+   about 5½ dB on 352 independent points, against a bar of 1 dB and 3 dB.
+   Quieter, shielded points are the furthest out. The gap is in the inputs (weather,
+   ground cover, UK vehicle figures), not in computing power, so no cloud spend
+   yet. [Check and findings](NOISEMODELLING_CHECK.md).
 
 The older ordering below is kept as history.
 

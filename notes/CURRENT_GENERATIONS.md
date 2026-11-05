@@ -9,11 +9,11 @@ Re-run it after adding or archiving generations. It reads only; nothing is moved
 - **temporary**: scratch output of earlier checks; a candidate to archive once confirmed unused.
 - **unreferenced**: not used by the app or the current calculation; history or supporting evidence.
 
-Summary: 8 app, 13 input, 62 older, 2 road, 15 temporary, 137 unreferenced, plus 178 loose files.
+Summary: 8 app, 13 input, 62 older, 2 road, 14 temporary, 139 unreferenced, plus 182 loose files.
 
 | Folder | Role | State |
 |---|---|---|
-| `england_map_preview` | app release | unsealed |
+| `england_map_v1` | app release | unsealed |
 | `explorer_display_v4` | app release | unsealed |
 | `oxford_london_map_v1` | app release | unsealed |
 | `recorded_sound_v3` | app release | unsealed |
@@ -24,7 +24,7 @@ Summary: 8 app, 13 input, 62 older, 2 road, 15 temporary, 137 unreferenced, plus
 | `real_road_reflection_calculation_v4` | road calculation (stopped; superseded by real_road_reflection_calculation_v5) | unsealed |
 | `real_road_reflection_calculation_v5` | road calculation (sealed) | sealed |
 | `adaptive_road_integration_v3` | input of real_road_reflection_calculation_v5 | sealed |
-| `england_acquisition_v1` | input of england_map_preview | unsealed |
+| `england_acquisition_v1` | input of england_map_v1 | sealed |
 | `ground_cover_inputs_v3` | input of real_road_reflection_calculation_v5 | sealed |
 | `physical_scene_assumption_review_v1` | input of real_road_reflection_calculation_v5 | sealed |
 | `physical_scene_assumptions_v2` | input of real_road_reflection_calculation_v5 | sealed |
@@ -96,6 +96,8 @@ Summary: 8 app, 13 input, 62 older, 2 road, 15 temporary, 137 unreferenced, plus
 | `multiple_edge_research_work` | unreferenced | unsealed |
 | `multiple_edge_review_v1` | unreferenced | sealed |
 | `multiple_edge_sources_v1` | unreferenced | sealed |
+| `noisemodelling_check_timing` | unreferenced | unsealed |
+| `noisemodelling_check_trial` | unreferenced | unsealed |
 | `operating_pytest_v1` | unreferenced | unsealed |
 | `oxford_london_acquisition_v1` | unreferenced | unsealed |
 | `physical_scene_discovery_v1` | unreferenced | unsealed |
@@ -244,11 +246,10 @@ Summary: 8 app, 13 input, 62 older, 2 road, 15 temporary, 137 unreferenced, plus
 | `corrected_road_validation_tmp_v1` | temporary | unsealed |
 | `corrected_road_validation_tmp_v2` | temporary | unsealed |
 | `curved_envelope_validation_tmp_v1` | temporary | unsealed |
-| `england_map_preview_tmp_helmert` | temporary | unsealed |
 | `ground_average_validation_tmp_v1` | temporary | unsealed |
 | `physical_assumption_validation_tmp_v1` | temporary | unsealed |
 | `physical_assumption_validation_tmp_v2` | temporary | unsealed |
 | `test_tmp_direction_03` | temporary | unsealed |
 | `test_tmp_emission_02` | temporary | unsealed |
 
-Loose files at the top of `artifacts/` (178): logs, benchmarks and receipts from earlier work.
+Loose files at the top of `artifacts/` (182): logs, benchmarks and receipts from earlier work.
