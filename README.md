@@ -1,27 +1,129 @@
-# Quiet UK — an explorer for quieter and louder places
+# Quiet UK
 
-Quiet UK is a general-purpose map for understanding mapped environmental noise.
-Homes, walks, travel and research are possible uses of the same product.
+**A map of how loud transport noise is, everywhere in England, down to every 10 m square.**
 
-**Now, 5 November 2026: all of England at 10 m.** Every Defra Round 4 road, rail
-and aircraft grid for England is downloaded, checked and mapped (1,495 squares of
-10 km, 13,455 rasters). The launcher opens the England map. Search for a place or
-click anywhere to see how loud it is, in decibels and in plain words, against the
-WHO's guideline. Zoom in to see each 10 m cell. Save up to three places to compare
-them. **For researchers** holds the full evidence for each spot and the downloads.
-Since 6 November the page is map-first, with three looks to choose from (Night glow,
-Editorial atlas, Calm guide). Zoomed out it shows area averages of the 10 m cells
-rather than samples, and a **Quiet areas** switch shows how much of each 5 km
-hexagon is very quiet. Each look has its own open-licence typeface, and the ONS
-country boundary keeps Defra's "no data" squares outside England from being drawn
-(the stored data is unchanged). Since 7 November, places are suggested as you type
-from a local copy of OS Open Names, and **Area** summarises any box up to 100 km²
-for road or rail noise: how it divides between the bands, and where its quietest and
-loudest spots are.
-Defra has confirmed that a zero is a calculated level below the cutoff,
-so the map shows those cells as **under 40 dB** (under 35 dB at night) instead of
-unknown. [How the England map works](notes/ENGLAND_MAP.md) ·
-[Defra's reply](notes/DEFRA_DATA_REQUEST_2026-10-03.md#provider-reply).
+![Quiet UK showing road noise around Regent's Park, London, with a selected spot reading 47.4 dB, fairly quiet](docs/images/london-map.jpg)
+
+Quiet UK puts the official Defra Round 4 noise maps for road, rail and aircraft into
+one map you can search and click. Every value comes straight from Defra's 10 m
+grids, so you can see how loud a street, a park or a house is, in decibels and in
+plain words, compared with the World Health Organization's guideline. It is for
+anyone choosing a home, planning a walk or studying noise, and every number links
+back to its source.
+
+![The whole of England in the Editorial atlas look, with road noise averaged over areas](docs/images/england-map.jpg)
+
+## What you can do
+
+- **Check any spot.** Search for a town, street or postcode, or click the map. You
+  get the level for that 10 m square, a plain-language band (from *very quiet* to
+  *extremely loud*), and how it compares with the WHO's guideline.
+- **Switch source and time.** Road, rail or aircraft; 24-hour average, daytime or
+  night.
+- **See the whole country.** Zoomed out, colours show averages of the 10 m squares
+  beneath them, and **Quiet areas** shows how much of each 5 km hexagon is very
+  quiet.
+- **Summarise an area.** Draw a box of up to 100 km² to see how its road or rail
+  noise divides between the bands, and where its quietest and loudest spots are.
+- **Compare places.** Save up to three spots and see them side by side.
+- **Get the evidence.** **All sources and evidence** shows every indicator for the
+  spot, with the exact values, versions and downloads that researchers need.
+- **Choose a look.** *Night glow*, *Editorial atlas* or *Calm guide*. Each follows
+  your device's light or dark mode and works on phones.
+
+Where Defra published a zero, the map shows **under 40 dB** (under 35 dB at night).
+Defra has confirmed in writing that a zero is a calculated level below the cutoff
+([Defra's reply](notes/DEFRA_DATA_REQUEST_2026-10-03.md#provider-reply)). Where
+Defra published nothing, the map says so rather than guessing.
+
+## Run it
+
+Quiet UK runs on your own computer. On Windows, double-click
+**Launch Quiet UK.cmd** in this folder. It starts the local server, waits until it
+is ready and opens your browser at **http://127.0.0.1:8766/**. Repeated launches
+reuse the running server, and an older Quiet UK server is replaced automatically.
+Startup logs are saved under `artifacts/launcher`.
+
+Or start it from a terminal in this folder:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\29_serve_explorer.py
+```
+
+The noise data itself is not in Git: the downloaded grids and built map files under
+`artifacts/` are far too large for it. [How the England map works](notes/ENGLAND_MAP.md)
+lists the scripts that download and build each part, and how each is checked.
+
+## Where the data comes from
+
+| Data | Publisher | Licence |
+|---|---|---|
+| Road, rail and aircraft noise, Round 4 (road and rail describe 2021; Defra gives no year for aircraft) | Defra | Open Government Licence v3; Crown copyright |
+| Country boundaries (December 2025) | Office for National Statistics | Open Government Licence v3; contains OS data © Crown copyright and database right 2025 |
+| Place names and postcodes (OS Open Names) | Ordnance Survey | Open Government Licence v3; contains OS data © Crown copyright and database right 2026 |
+| Basemap | OpenFreeMap, OpenMapTiles and OpenStreetMap contributors | ODbL (map data) |
+| Fonts: Geist, Newsreader, Figtree | Their authors, via Fontsource | SIL Open Font License 1.1 (licences in `explorer/fonts`) |
+
+Place suggestions come from a local copy of OS Open Names. Only a search you send on
+with **Search OpenStreetMap** goes to Nominatim. Coordinates you type and every
+noise lookup stay on your computer, and there are no analytics. The basemap needs
+internet access to OpenFreeMap.
+
+## Status
+
+| Done | Still ahead |
+|---|---|
+| England-wide 10 m map for road, rail and aircraft | Wales, Scotland and Northern Ireland ([data requests](notes/PUBLISHER_REQUESTS_WALES_SCOTLAND_NI_2026-11-08.md)) |
+| Search, area summaries, saved comparisons and evidence downloads | Defra's combined transport map, once Defra publishes it |
+| Explicit unknown states, source scope and aircraft limitations | Defensible distinctions between places below the 40 dB cutoff |
+| Versioned, checksum-verified data releases | A public website (today it runs only on your own computer) |
+
+This is an exploratory product built on official models. Its values are Defra's
+calculated levels, not measurements, and it is not an independently validated
+exposure study.
+
+**Start here:** [how the England map works](notes/ENGLAND_MAP.md),
+[active roadmap](notes/ACTIVE_ROADMAP.md),
+[research data contract](notes/RESEARCH_DATA_CONTRACT.md),
+[stocktake against the Opus review](notes/PROJECT_STOCKTAKE_2026-09-28.md).
+The 18 September product review and older phase reports are historical evidence;
+the active roadmap is the current delivery plan.
+
+## Verify a source-only checkout
+
+The default tests need no downloaded noise data or running app. In a fresh Python
+3.12 or 3.14 virtual environment, run from the repository root:
+
+```text
+python -m pip install -e ".[dev]"
+python -m pip check
+python -m pytest -q -rs --strict-markers
+```
+
+Windows 3.14 also has an exact dependency lock. The default suite builds tiny
+synthetic datasets and uses checked-in, byte-preserved Defra fixtures. Three
+production-release checks are explicitly deselected; to run those against an
+existing data checkout, use `python -m pytest --run-release-checks -m release_data`.
+Missing release inputs then fail clearly rather than silently skipping.
+See [verification setup and scope](notes/REPRODUCIBLE_ENVIRONMENT.md#source-only-verification).
+
+## Project history
+
+- **5 November 2026:** all of England at 10 m. Every Defra Round 4 road, rail and
+  aircraft grid for England was downloaded, checked and mapped (1,495 squares of
+  10 km, 13,455 rasters).
+- **6 November 2026:** the page became map-first, with three looks, a zoomed-out
+  overview of area averages, the **Quiet areas** hexagons and the ONS country
+  boundary, which keeps Defra's "no data" squares outside England from being drawn
+  (the stored data is unchanged).
+- **7 November 2026:** place suggestions as you type, named spots and the **Area**
+  tool.
+- **8 November 2026:** research into Wales, Scotland and Northern Ireland, and draft
+  requests to their publishers.
+- **2 October 2026 (earlier phase):** a local 10 m regional explorer for a
+  100 × 50 km Oxford–London area, described below.
+
+## The Oxford–London explorer and earlier work
 
 **Earlier phase, 2 October 2026:** a working local 10 m regional explorer with
 coverage outlines, source/time controls, place and coordinate search, keyboard
@@ -66,36 +168,7 @@ side by side. Places persist in your browser; values are re-read from verified
 originals. Download exact observations as CSV or JSON, or copy a release-specific
 local comparison link. [Comparison behaviour and evidence](notes/PLACE_COMPARISON.md).
 
-## Verify a source-only checkout
-
-The default tests need no downloaded noise data or running app. In a fresh Python
-3.12 or 3.14 virtual environment, run from the repository root:
-
-```text
-python -m pip install -e ".[dev]"
-python -m pip check
-python -m pytest -q -rs --strict-markers
-```
-
-Windows 3.14 also has an exact dependency lock. The default suite builds tiny
-synthetic datasets and uses checked-in, byte-preserved Defra fixtures. Three
-production-release checks are explicitly deselected; to run those against an
-existing data checkout, use `python -m pytest --run-release-checks -m release_data`.
-Missing release inputs then fail clearly rather than silently skipping.
-See [verification setup and scope](notes/REPRODUCIBLE_ENVIRONMENT.md#source-only-verification).
-
-## Launch the app
-
-On Windows, double-click **Launch Quiet UK.cmd** in this repository folder
-(the existing shortcut in the containing folder also works). It starts the local server in the background, waits
-until it is ready, and opens your default browser. Repeated launches reuse the
-running release. Startup logs are saved under `artifacts/launcher`.
-
-From this directory on the existing Windows environment:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\29_serve_explorer.py
-```
+## Launcher and serving details
 
 Open **http://127.0.0.1:8766/**. The England map is the home page when it is
 installed. It follows the device's light or dark mode and works on phones. The
@@ -106,8 +179,7 @@ shown first, with the nine-indicator table under **All sources and time indicato
 View links preserve the source, metric, point, camera, overlay visibility and release.
 Recording links also preserve the selected site and recording release. The launcher
 discovers `artifacts/recorded_sound_v3` when installed; use `--observations PATH`
-for another qualified recording release. Restart an older running server before
-using the updated launcher (interface version 6).
+for another qualified recording release.
 
 To reproduce the optional recording layer and gap evaluation:
 
@@ -186,19 +258,6 @@ are separate historical evidence layers, not a validated numerical total. Road
 and rail are still combined in the historical output. Display generation v4 uses
 contract version 2 and does not overwrite earlier display generations.
 
-| Present | Still ahead |
-|---|---|
-| England-wide 10 m map plus the 5,000 km² Oxford–London tools | Wales, Scotland and Northern Ireland noise integration |
-| Versioned assets, source-linked regional data and evidence exports | National source-linked construction and independent validation |
-| Explicit unknown states, source scope and aircraft limitations | Defensible distinctions between below-threshold quiet places |
-| Responsive explorer, saved three-place comparisons, evidence exports and local-view sharing | User-tested workflows, broader detailed coverage and optional context layers |
-
-**Start here:** [active roadmap](notes/ACTIVE_ROADMAP.md),
-[stocktake against the Opus review](notes/PROJECT_STOCKTAKE_2026-09-28.md),
-[research data contract](notes/RESEARCH_DATA_CONTRACT.md).
-The 18 September product review and older phase reports are historical evidence;
-the active roadmap is the current delivery plan.
-
 ## Tiled acquisition canary
 
 The separate 50 × 50 km Oxford–Reading–Chilterns workflow uses 25 overlapping
@@ -263,7 +322,10 @@ the engine's import closure, and shared terrain memory (see
 [the v5 engine note](notes/V5_ENGINE.md)). The earlier v4 run was stopped
 unfinished; v5 reproduces every road and observation it saved.
 
+
 ## Data licence
 
 Preserve attribution and licence metadata for each source. Defra identifies these
-datasets under the Open Government Licence with Crown/Defra attribution.
+datasets under the Open Government Licence with Crown/Defra attribution. The table
+under [Where the data comes from](#where-the-data-comes-from) lists every source the
+England map uses.
