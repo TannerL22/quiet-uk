@@ -12,7 +12,7 @@ $ownsLock = $false
 function Test-QuietUK {
     try {
         $record = Invoke-RestMethod ($appUrl + 'api/app') -TimeoutSec 2
-        if ($record.app -ne 'quiet-uk' -or $record.interface_version -ne 6) { return $false }
+        if ($record.app -ne 'quiet-uk' -or $record.interface_version -ne 9) { return $false }
         # The server prefers the finished England map, then the preview, as 29_serve_explorer.py does.
         $englandManifestPath = Join-Path $projectRoot 'artifacts\england_map_v1\manifest.json'
         if (-not (Test-Path -LiteralPath $englandManifestPath)) { $englandManifestPath = Join-Path $projectRoot 'artifacts\england_map_preview\manifest.json' }
@@ -20,6 +20,21 @@ function Test-QuietUK {
             $expectedEngland = Get-Content -LiteralPath $englandManifestPath -Raw | ConvertFrom-Json
             if ($record.england_release -ne $expectedEngland.release_id) { return $false }
         } elseif ($record.england_release) { return $false }
+        # The zoomed-out overview: a server started before it was built must restart to use it.
+        # One that failed its checks runs without it and says why, so that one is accepted.
+        # Likewise the England boundary: a server started before it was installed must restart.
+        $outlinePath = Join-Path $projectRoot 'artifacts\boundaries\ons_countries_2025_bgc\Countries_December_2025_Boundaries_UK_BGC.geojson'
+        if ((Test-Path -LiteralPath $outlinePath) -and -not $record.england_outline_problem -and -not $record.england_outline_sha256) { return $false }
+        $placesManifestPath = Join-Path $projectRoot 'artifacts\place_names_v1\manifest.json'
+        if ((Test-Path -LiteralPath $placesManifestPath) -and -not $record.place_names_problem -and $record.place_names_release) {
+            $expectedPlaces = Get-Content -LiteralPath $placesManifestPath -Raw | ConvertFrom-Json
+            if ($record.place_names_release -ne $expectedPlaces.release_id) { return $false }
+        }
+        $overviewManifestPath = Join-Path $projectRoot 'artifacts\england_overview_v1\manifest.json'
+        if ((Test-Path -LiteralPath $overviewManifestPath) -and -not $record.england_overview_problem) {
+            $expectedOverview = Get-Content -LiteralPath $overviewManifestPath -Raw | ConvertFrom-Json
+            if ($record.england_overview_release -ne $expectedOverview.release_id) { return $false }
+        }
         $observationsPath = Join-Path $projectRoot 'artifacts\recorded_sound_v3\manifest.json'
         if (Test-Path -LiteralPath $observationsPath) {
             $expectedObserved = Get-Content -LiteralPath $observationsPath -Raw | ConvertFrom-Json
@@ -51,6 +66,21 @@ function Test-QuietUK {
     } catch { return $false }
 }
 
+# An older Quiet UK server from this project is replaced rather than reported as a busy port.
+# Only a process answering as quiet-uk and started from this project's server script is stopped.
+function Stop-OlderQuietUK {
+    try { $record = Invoke-RestMethod ($appUrl + 'api/app') -TimeoutSec 2 } catch { return }
+    if ($record.app -ne 'quiet-uk') { return }
+    $owners = Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+    foreach ($owner in $owners) {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId=$owner" -ErrorAction SilentlyContinue
+        if ($process -and $process.CommandLine -and $process.CommandLine.ToLowerInvariant().Contains($serverScript.ToLowerInvariant())) {
+            Stop-Process -Id $owner -Force
+            Wait-Process -Id $owner -Timeout 10 -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 try {
     $ownsLock = $launchLock.WaitOne(0)
     if (-not $ownsLock) { exit 0 } # A simultaneous click is already starting the app.
@@ -58,6 +88,7 @@ try {
         throw 'The project Python environment is missing. Restore the .venv folder before launching.'
     }
     if (-not (Test-QuietUK)) {
+        Stop-OlderQuietUK
         $probe = New-Object System.Net.Sockets.TcpClient
         try { $probe.Connect('127.0.0.1', 8766); $portBusy = $true }
         catch { $portBusy = $false }

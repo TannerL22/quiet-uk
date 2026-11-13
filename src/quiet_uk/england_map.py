@@ -96,8 +96,22 @@ def classify(values, valid, rule):
     return classes
 
 
+# Transformation grids for this project live inside it (`artifacts/proj`, not committed), not
+# only in PROJ's user folder. On Windows, files a packaged app (such as the Claude desktop app)
+# writes to %LOCALAPPDATA% land in that app's private copy, which programs started from File
+# Explorer cannot see; the project folder is the same for everyone.
+PROJECT_GRIDS = Path(__file__).resolve().parents[2] / 'artifacts' / 'proj'
+
+
+def use_project_grids():
+    """Let PROJ find grids in the project folder as well as its usual places."""
+    if PROJECT_GRIDS.is_dir() and str(PROJECT_GRIDS) not in pyproj.datadir.get_data_dir().split(os.pathsep):
+        pyproj.datadir.append_data_dir(PROJECT_GRIDS)
+
+
 def best_transformer():
     """The most accurate WGS 84 -> British National Grid operation installed here."""
+    use_project_grids()
     group = TransformerGroup('EPSG:4326', 'EPSG:27700', always_xy=True)
     if not group.transformers:
         raise MapIntegrityError('No WGS 84 to British National Grid transformation is available')
@@ -113,7 +127,9 @@ def best_transformer():
 
 
 def grid_path(name):
-    """The installed grid file PROJ would use, or None, searched in pyproj's order (data folders, then the user folder)."""
+    """The installed grid file PROJ would use, or None, searched in pyproj's order: data folders
+    (pyproj's own, then the project's), then the user folder."""
+    use_project_grids()
     for folder in (*pyproj.datadir.get_data_dir().split(os.pathsep), pyproj.datadir.get_user_data_dir()):
         if (Path(folder) / name).is_file():
             return Path(folder) / name
@@ -122,10 +138,12 @@ def grid_path(name):
 
 def pinned_transformer(info):
     """The exact operation a map was built with, or an error if it no longer reproduces."""
+    use_project_grids()
     for grid in info.get('grids', []):
         path = grid_path(grid['name'])
         if path is None or file_hash(path) != grid['sha256']:
-            raise MapIntegrityError(f'Transformation grid {grid["name"]} is missing or differs from the one this map was built with')
+            raise MapIntegrityError(f'Transformation grid {grid["name"]} is missing or differs from the one this map was built with. '
+                                    f'Put the original file in artifacts/proj (see notes/ENGLAND_MAP.md, "Coordinate accuracy").')
     transformer = Transformer.from_pipeline(info['definition'])
     for lon, lat, east, north in info['check_points']:
         if max(abs(a - b) for a, b in zip(transformer.transform(lon, lat), (east, north))) > 1e-6:
@@ -189,6 +207,7 @@ _WORKER = {}
 
 
 def _start_worker(acquisition, records, definition):
+    use_project_grids()  # A fresh worker process must find the pinned grid too.
     accepted = [r for r in records if r['status'] == 'accepted']
     index = {(r['tile'], layer_key(r)): r for r in accepted}
 

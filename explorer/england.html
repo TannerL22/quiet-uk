@@ -1,14 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-look="night">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#171a18" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0b0a10" id="theme-color">
   <meta name="description" content="How loud is road, rail and aircraft noise where you are? Defra's official noise maps for every 10 metre square of England.">
   <title>Quiet UK · England noise map</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232d5946'/%3E%3Cpath d='M9 20c2-5 4-8 7-8s5 3 7 8' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23201a2c'/%3E%3Cpath d='M8 21c2.4-5.6 4.8-8.4 8-8.4s5.6 2.8 8 8.4' fill='none' stroke='%23f8973f' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <script>
+    // Apply the remembered look before the first paint, so the page never flashes another one.
+    (() => {
+      const looks = ['night', 'atlas', 'guide'];
+      let look = new URLSearchParams(location.hash.slice(1)).get('look');
+      if (!looks.includes(look)) { try { look = localStorage.getItem('quietuk-look'); } catch { look = null; } }
+      document.documentElement.dataset.look = looks.includes(look) ? look : 'night';
+    })();
+  </script>
   <link rel="stylesheet" href="/vendor/maplibre-gl.css">
   <link rel="stylesheet" href="/england.css">
   <script src="/vendor/maplibre-gl.js" defer></script>
@@ -17,73 +25,189 @@
 </head>
 <body>
   <a class="skip-link" href="#place">Skip to place search</a>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="Quiet UK, start again">quiet<span>uk</span></a>
-    <span class="topbar-tag">England · road, rail and aircraft noise</span>
-    <div class="topbar-actions"><button id="open-help" class="ghost-button" type="button">How to read this map</button></div>
-  </header>
 
-  <div class="app">
-    <aside id="panel" class="panel" data-state="peek" aria-label="Search, map options and results">
-      <button class="sheet-handle" id="sheet-handle" type="button" aria-expanded="false" aria-controls="panel-body"><span class="visually-hidden">Show more options and results</span></button>
-      <div class="panel-body" id="panel-body">
-        <section class="intro">
-          <h1>How loud is it <em>where you are?</em></h1>
-          <p>Road, rail and aircraft noise for every 10&nbsp;metre square of England, from Defra's official noise maps.</p>
-        </section>
+  <main class="stage" aria-label="Noise map">
+    <div id="map"></div>
+    <span class="crosshair" aria-hidden="true"></span>
+    <div id="hover" class="hover" aria-hidden="true" hidden></div>
+    <button id="inspect-centre" class="button centre-check" type="button">Check the spot at the map centre</button>
+    <div id="loading" class="loading" role="status"><span class="spinner" aria-hidden="true"></span><span id="loading-text">Loading the noise map…</span></div>
+    <p id="message" class="map-message" role="alert" hidden></p>
+    <div id="tip" class="tip" hidden><p>Search for a place, or click anywhere on the map to see how loud it is.</p><button id="dismiss-tip" type="button">Got it</button></div>
+    <div id="area-hint" class="area-hint card" hidden>
+      <p id="area-hint-text" role="status"></p>
+      <div class="area-hint-actions"><button id="area-use-view" class="button button-quiet" type="button">Use this view</button><button id="area-cancel" class="text-button" type="button">Cancel</button></div>
+    </div>
+  </main>
 
-        <form id="search" class="search" role="search">
-          <label class="visually-hidden" for="place">Search for a place</label>
-          <div class="search-field">
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            <input id="place" type="search" placeholder="Town, street, postcode or coordinates" autocomplete="off" enterkeyhint="search" spellcheck="false">
-            <button type="submit" id="search-button" aria-label="Search"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          </div>
-          <p id="search-status" class="hint" role="status"></p>
-          <ul id="search-results" class="search-results" hidden aria-label="Other matching places"></ul>
-        </form>
+  <!-- Top left: who we are, and where to look. -->
+  <div class="dock dock-left">
+    <header class="card searchbar">
+      <a class="brand" href="/" aria-label="Quiet UK, start again"><span class="brand-mark" aria-hidden="true"></span>quiet<span>uk</span></a>
+      <form id="search" class="search" role="search">
+        <label class="visually-hidden" for="place">Search for a place</label>
+        <div class="search-field">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input id="place" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions" placeholder="Town, street, postcode or coordinates" autocomplete="off" enterkeyhint="search" spellcheck="false">
+          <button type="submit" id="search-button" aria-label="Search"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </form>
+      <ul id="suggestions" class="suggestions" role="listbox" aria-label="Suggested places" hidden></ul>
+      <p id="search-status" class="hint search-status" role="status"></p>
+      <ul id="search-results" class="search-results" hidden aria-label="Other matching places"></ul>
+    </header>
 
-        <section class="controls" aria-label="What the map shows">
-          <fieldset class="segmented" id="sources">
-            <legend>Noise from</legend>
-            <div class="options">
-              <label><input type="radio" name="source" value="road" checked><span>Road</span></label>
-              <label><input type="radio" name="source" value="rail"><span>Rail</span></label>
-              <label><input type="radio" name="source" value="aircraft"><span>Aircraft</span></label>
-            </div>
-          </fieldset>
-          <fieldset class="segmented" id="metrics">
-            <legend>Time of day</legend>
-            <div class="options">
-              <label><input type="radio" name="metric" value="Lden" checked><span>24-hour</span></label>
-              <label><input type="radio" name="metric" value="Lday"><span>Daytime</span></label>
-              <label><input type="radio" name="metric" value="Lnight"><span>Night</span></label>
-            </div>
-          </fieldset>
-          <p id="layer-note" class="hint"></p>
-        </section>
+    <!-- The selected spot, in plain words. Everything else about it is in the drawer. -->
+    <section id="result" class="card result" aria-labelledby="spot-title" hidden>
+      <div class="result-head">
+        <p class="eyebrow" id="result-eyebrow">Selected spot</p>
+        <button class="icon-button" id="close-result" type="button" aria-label="Clear the selected spot">×</button>
+      </div>
+      <h2 id="spot-title" tabindex="-1"></h2>
+      <div class="spot-reading"><span id="spot-value" class="spot-value" aria-live="polite"></span><span id="spot-level" class="level-chip"></span></div>
+      <p id="spot-layer" class="hint"></p>
+      <p id="spot-explain" class="spot-explain"></p>
+      <p id="spot-who" class="who"></p>
+      <p id="spot-area" class="spot-area" hidden></p>
+      <div class="result-actions" id="result-actions">
+        <button id="save-place" class="button" type="button" data-save-place>Save to compare</button>
+        <button id="open-details" class="button button-quiet" type="button">All sources and evidence</button>
+        <button id="share-view" class="text-button" type="button">Copy link</button>
+      </div>
+      <div class="result-actions" id="recorded-actions" hidden>
+        <button id="check-recorded" class="button" type="button">Check modelled noise here</button>
+      </div>
+      <p id="share-status" class="hint" role="status"></p>
+    </section>
+  </div>
 
-        <section id="spot" class="spot" aria-labelledby="spot-title" hidden>
-          <p class="eyebrow">Selected spot</p>
-          <h2 id="spot-title" tabindex="-1"></h2>
-          <div class="spot-reading"><span id="spot-value" class="spot-value" aria-live="polite"></span><span id="spot-level" class="level-chip"></span></div>
-          <p id="spot-explain"></p>
-          <p id="spot-who" class="who"></p>
-          <div class="spot-actions">
-            <button id="save-place" class="button" type="button" data-save-place>Save to compare</button>
-            <button id="share-view" class="button button-quiet" type="button">Copy link</button>
-          </div>
-          <p id="share-status" class="hint" role="status"></p>
-          <h3>Every source and time here</h3>
+  <!-- Top right: how the map looks, and the drawer. -->
+  <div class="dock dock-right">
+    <fieldset class="looks card" id="looks">
+      <legend class="visually-hidden">Map look</legend>
+      <label><input type="radio" name="look" value="night"><span><i class="look-dot" aria-hidden="true"></i><b>Night glow</b><b class="short">Night</b></span></label>
+      <label><input type="radio" name="look" value="atlas"><span><i class="look-dot" aria-hidden="true"></i><b>Editorial atlas</b><b class="short">Atlas</b></span></label>
+      <label><input type="radio" name="look" value="guide"><span><i class="look-dot" aria-hidden="true"></i><b>Calm guide</b><b class="short">Guide</b></span></label>
+    </fieldset>
+    <div class="tools card">
+      <button id="open-area" class="tool-button" type="button" aria-pressed="false" aria-label="Select an area to summarise"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3.2 2.6"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/></svg><span>Area</span></button>
+      <button id="open-places" class="tool-button" type="button" aria-controls="drawer" aria-label="Your places"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></svg><span>Places</span><span id="places-badge" class="badge" hidden></span></button>
+      <button id="open-about" class="tool-button" type="button" aria-controls="drawer" aria-label="About the data"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h10l4 4v12H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Data</span></button>
+      <button id="open-help" class="tool-button" type="button" aria-label="How to read this map"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg><span>Help</span></button>
+    </div>
+  </div>
+
+  <!-- Bottom left: what the colours mean, and which layer they show. -->
+  <section id="legend" class="card legend" aria-labelledby="legend-title">
+    <div class="legend-head">
+      <div class="legend-titles">
+        <strong id="legend-title">Road noise · 24-hour average</strong>
+        <span id="legend-scale-note" class="legend-scale-note"></span>
+      </div>
+      <button type="button" id="legend-change" class="legend-change" aria-expanded="false" aria-controls="layer-controls">Change</button>
+    </div>
+    <div class="layer-controls" id="layer-controls">
+      <fieldset class="segmented" id="sources">
+        <legend class="visually-hidden">Noise from</legend>
+        <div class="options">
+          <label><input type="radio" name="source" value="road" checked><span>Road</span></label>
+          <label><input type="radio" name="source" value="rail"><span>Rail</span></label>
+          <label><input type="radio" name="source" value="aircraft"><span>Aircraft</span></label>
+        </div>
+      </fieldset>
+      <fieldset class="segmented" id="metrics">
+        <legend class="visually-hidden">Time of day</legend>
+        <div class="options">
+          <label><input type="radio" name="metric" value="Lden" checked><span>24-hour</span></label>
+          <label><input type="radio" name="metric" value="Lday"><span>Daytime</span></label>
+          <label><input type="radio" name="metric" value="Lnight"><span>Night</span></label>
+        </div>
+      </fieldset>
+    </div>
+    <div id="legend-scale" class="legend-scale" role="img"></div>
+    <div id="legend-extra" class="legend-extra"></div>
+    <div class="legend-switches">
+      <label class="switch"><input id="overlay" type="checkbox" checked><span>Noise colours</span></label>
+      <label class="switch" id="lens-row"><input id="lens" type="checkbox"><span>Quiet areas</span></label>
+    </div>
+    <p id="overlay-status" class="hint" role="status"></p>
+  </section>
+
+  <!-- The drawer: the full reading, saved places, and everything for researchers. -->
+  <aside id="drawer" class="drawer" aria-labelledby="drawer-title" hidden>
+    <div class="drawer-head">
+      <h2 id="drawer-title" class="visually-hidden">Details</h2>
+      <div class="tabs" role="tablist" aria-label="Details">
+        <button role="tab" id="tab-spot" aria-controls="panel-spot" aria-selected="true" type="button">This spot</button>
+        <button role="tab" id="tab-area" aria-controls="panel-area" aria-selected="false" type="button" tabindex="-1">This area</button>
+        <button role="tab" id="tab-places" aria-controls="panel-places" aria-selected="false" type="button" tabindex="-1">Places</button>
+        <button role="tab" id="tab-about" aria-controls="panel-about" aria-selected="false" type="button" tabindex="-1">About the data</button>
+      </div>
+      <button class="icon-button" type="button" id="close-drawer" aria-label="Close details">×</button>
+    </div>
+
+    <div class="drawer-body">
+      <section role="tabpanel" id="panel-spot" aria-labelledby="tab-spot" class="tab-panel">
+        <p id="spot-empty" class="empty">Click the map, or search for a place, to see its noise levels here.</p>
+        <section id="spot" class="spot" hidden>
+          <h3 id="spot-detail-title"></h3>
           <table class="readings" aria-label="Noise at this spot by source and time of day, in decibels">
             <thead><tr><th scope="col"><span class="visually-hidden">Source</span></th><th scope="col">24-hour</th><th scope="col">Daytime</th><th scope="col">Night</th></tr></thead>
             <tbody id="readings"></tbody>
           </table>
           <p class="hint">Levels in dB. Select one to show it on the map. Sources are mapped separately and not added together. “—” means no published value, which is not the same as quiet.</p>
+          <div class="spot-actions">
+            <button class="button" type="button" data-save-place>Save to compare</button>
+            <a id="point-download" class="button button-quiet" hidden download>Download with evidence (JSON)</a>
+          </div>
+          <h3>Selected spot evidence</h3>
+          <p id="research-spot-empty" class="hint">Select a spot to see its native cell, record and checksum.</p>
+          <dl class="research-list" id="research-spot" hidden></dl>
         </section>
+      </section>
 
+      <section role="tabpanel" id="panel-area" aria-labelledby="tab-area" class="tab-panel" hidden>
+        <p id="area-empty" class="empty">Choose <strong>Area</strong> at the top of the map, then drag a box over any part of England, to see how noisy it is overall and where its quietest and loudest spots are.</p>
+        <section id="area" class="area" aria-labelledby="area-title" hidden>
+          <div class="area-head">
+            <div><h3 id="area-title"></h3><p id="area-layer" class="hint"></p></div>
+            <button id="clear-area" class="text-button" type="button">Clear</button>
+          </div>
+          <p id="area-status" class="area-status" role="status"></p>
+          <div id="area-summary" class="area-summary" hidden>
+            <div>
+              <h4>How the area divides</h4>
+              <div id="area-bar" class="area-bar" role="img"></div>
+              <table class="area-bands" id="area-bands" aria-label="Share of the area's calculated 10 m squares in each band"><tbody></tbody></table>
+              <p id="area-bands-note" class="hint"></p>
+            </div>
+            <dl class="area-figures" id="area-figures"></dl>
+            <div class="area-spot" id="area-quiet">
+              <p class="eyebrow">Quietest spot</p>
+              <p class="area-spot-main" id="area-quiet-main"></p>
+              <p class="hint" id="area-quiet-note"></p>
+              <label class="area-level">Away from squares at or over <select id="area-level"></select></label>
+              <div class="spot-actions"><button id="area-quiet-show" class="button button-quiet" type="button">Check it on the map</button></div>
+            </div>
+            <div class="area-spot" id="area-loud">
+              <p class="eyebrow">Loudest square</p>
+              <p class="area-spot-main" id="area-loud-main"></p>
+              <p class="hint" id="area-loud-note"></p>
+              <div class="spot-actions"><button id="area-loud-show" class="button button-quiet" type="button">Check it on the map</button></div>
+            </div>
+            <p class="hint" id="area-caveat"></p>
+            <div class="spot-actions">
+              <a id="area-json" class="button button-quiet" download>Download with evidence (JSON)</a>
+              <a id="area-csv" class="button button-quiet" download>Download CSV</a>
+            </div>
+          </div>
+          <p><button id="area-again" class="text-button" type="button">Select another area</button></p>
+        </section>
+      </section>
+
+      <section role="tabpanel" id="panel-places" aria-labelledby="tab-places" class="tab-panel" hidden>
         <section id="places" class="places" aria-labelledby="places-title">
-          <div class="section-head"><h2 id="places-title">Your places</h2><span id="places-count" class="hint">0 of 3</span></div>
+          <div class="section-head"><h3 id="places-title">Your places</h3><span id="places-count" class="hint">0 of 3</span></div>
           <p id="places-status" class="hint" role="status">Save up to three spots to compare them side by side.</p>
           <ol id="saved-places" class="saved-places"></ol>
           <div class="places-actions">
@@ -91,70 +215,54 @@
             <button id="clear-places" class="text-button" type="button" hidden>Clear all</button>
           </div>
         </section>
+      </section>
 
-        <details class="more" id="about">
-          <summary>About this map</summary>
-          <div class="more-body">
-            <p>These are Defra's official strategic noise maps for England, made with a computer model for the year 2021. They show the <strong>average</strong> level over a whole year, 4&nbsp;metres above the ground. They are not live sound and not measurements.</p>
-            <ul>
-              <li><strong>Darker means louder.</strong> Every 10&nbsp;dB step sounds roughly twice as loud.</li>
-              <li><strong>Each source is separate.</strong> Road, rail and aircraft are mapped one at a time and are not added together.</li>
-              <li><strong>“Under 40 dB”</strong> (under 35 at night) means Defra's model worked out a level below that, but the exact number isn't published.</li>
-              <li><strong>Grey stripes or blank</strong> mean no published value. That is not the same as quiet.</li>
-              <li><strong>Aircraft noise</strong> is only mapped around major airports.</li>
-            </ul>
-            <p><button class="text-button" type="button" data-open-help>Read the full guide</button></p>
+      <section role="tabpanel" id="panel-about" aria-labelledby="tab-about" class="tab-panel" hidden>
+        <section class="prose" id="about">
+          <h3>About this map</h3>
+          <p>These are Defra's official strategic noise maps for England, made with a computer model for the year 2021. They show the <strong>average</strong> level over a whole year, 4&nbsp;metres above the ground. They are not live sound and not measurements.</p>
+          <ul>
+            <li><strong>Stronger colour means louder.</strong> Every 10&nbsp;dB step sounds roughly twice as loud.</li>
+            <li><strong>Zoomed out, each colour is an area average</strong> of the 10&nbsp;m squares beneath it. Zoom in to see single streets.</li>
+            <li><strong>Each source is separate.</strong> Road, rail and aircraft are mapped one at a time and are not added together.</li>
+            <li><strong>“Under 40 dB”</strong> (under 35 at night) means Defra's model worked out a level below that, but the exact number isn't published.</li>
+            <li><strong>Grey stripes or blank</strong> mean no published value. That is not the same as quiet.</li>
+            <li><strong>Aircraft noise</strong> is only mapped around major airports.</li>
+          </ul>
+          <p><button class="text-button" type="button" data-open-help>Read the full guide</button></p>
+        </section>
+        <section class="prose research" id="research">
+          <h3>For researchers</h3>
+          <h4>Indicators</h4>
+          <dl class="research-list" id="research-indicators"></dl>
+          <h4>Data and coverage</h4>
+          <dl class="research-list" id="research-data"></dl>
+          <p id="research-policy"></p>
+          <h4>How the map is drawn</h4>
+          <ul id="research-drawing"></ul>
+          <h4>Area summaries</h4>
+          <ul id="research-area"></ul>
+          <h4>Tools</h4>
+          <div class="spot-actions">
+            <button id="inspect-centre-panel" class="button button-quiet" type="button">Check the spot at the map centre</button>
+            <button id="share-view-panel" class="button button-quiet" type="button">Copy view link</button>
           </div>
-        </details>
-
-        <details class="more" id="research">
-          <summary>For researchers</summary>
-          <div class="more-body">
-            <h3>Indicators</h3>
-            <dl class="research-list" id="research-indicators"></dl>
-            <h3>Data and coverage</h3>
-            <dl class="research-list" id="research-data"></dl>
-            <p id="research-policy"></p>
-            <h3>How the map is drawn</h3>
-            <ul id="research-drawing"></ul>
-            <h3>Selected spot evidence</h3>
-            <p id="research-spot-empty">Select a spot to see its native cell, record and checksum.</p>
-            <dl class="research-list" id="research-spot" hidden></dl>
-            <p><a id="point-download" class="button button-quiet" hidden download>Download this spot with its evidence (JSON)</a></p>
-            <h3>Tools</h3>
-            <div class="spot-actions">
-              <button id="inspect-centre-panel" class="button button-quiet" type="button">Check the spot at the map centre</button>
-              <button id="share-view-panel" class="button button-quiet" type="button">Copy view link</button>
-            </div>
-            <label class="check-row" id="recorded-row" hidden><input type="checkbox" id="recorded-toggle"><span>Show recorded sound samples <span id="recorded-count" class="hint"></span><br><span class="hint" id="recorded-status"></span></span></label>
-            <p><a href="/pilot">Open the older Oxford–London explorer</a>: earlier regional tools, release-pinned regional evidence bundles and the original comparison workflow.</p>
-          </div>
-        </details>
-
+          <p id="share-status-panel" class="hint" role="status"></p>
+          <label class="check-row" id="recorded-row" hidden><input type="checkbox" id="recorded-toggle"><span>Show recorded sound samples <span id="recorded-count" class="hint"></span><br><span class="hint" id="recorded-status"></span></span></label>
+          <p><a href="/pilot">Open the older Oxford–London explorer</a>: earlier regional tools, release-pinned regional evidence bundles and the original comparison workflow.</p>
+        </section>
         <p class="credits">
           Noise data: Defra, Crown copyright 2023–2024, <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener">Open Government Licence v3.0</a>.
           Basemap © OpenMapTiles © OpenStreetMap contributors, via OpenFreeMap.
-          Place searches you submit go to OpenStreetMap Nominatim; coordinates you type stay on this computer. No analytics.
+          Country boundaries: Office for National Statistics, Open Government Licence v3.0; contains OS data © Crown copyright and database right 2025.
+          Typefaces Geist, Newsreader and Figtree, SIL Open Font License 1.1.
+          <span id="credits-places">Place names: OS Open Names, Ordnance Survey, Open Government Licence v3.0; contains OS data © Crown copyright and database right 2026.
+          Suggestions as you type come from a copy of it on this computer, so what you type stays here.</span>
+          A search goes to OpenStreetMap Nominatim only when you choose “Search OpenStreetMap”, or press Enter and the place list has no match. Coordinates you type stay on this computer. No analytics.
         </p>
-      </div>
-    </aside>
-
-    <main class="map-area" aria-label="Noise map">
-      <div id="map"></div>
-      <span class="crosshair" aria-hidden="true"></span>
-      <button id="inspect-centre" class="button centre-check" type="button">Check the spot at the map centre</button>
-      <div id="loading" class="loading" role="status"><span class="spinner" aria-hidden="true"></span><span id="loading-text">Loading the noise map…</span></div>
-      <p id="message" class="map-message" role="alert" hidden></p>
-      <div id="tip" class="tip" hidden><p>Search for a place, or click anywhere on the map to see how loud it is.</p><button id="dismiss-tip" type="button">Got it</button></div>
-      <section id="legend" class="legend" aria-labelledby="legend-title">
-        <div class="legend-head"><strong id="legend-title">Road noise · 24-hour average</strong><button type="button" id="legend-change" class="legend-change" aria-controls="panel-body">Change</button><label class="switch"><input id="overlay" type="checkbox" checked><span>Show</span></label></div>
-        <div id="legend-ramp" class="legend-ramp"></div>
-        <div class="legend-words"><span>Quieter</span><span>Louder</span></div>
-        <div id="legend-extra" class="legend-extra"></div>
-        <p id="overlay-status" class="hint" role="status"></p>
       </section>
-    </main>
-  </div>
+    </div>
+  </aside>
 
   <dialog id="help-dialog" aria-labelledby="help-title">
     <div class="dialog-head"><h2 id="help-title">How to read this map</h2><button class="icon-button" type="button" data-close aria-label="Close">×</button></div>
@@ -163,17 +271,32 @@
       <h3>The colours</h3>
       <table class="scale-table" id="help-scale"><tbody></tbody></table>
       <p class="hint">The words are for the 24-hour and daytime averages. At night they apply 10&nbsp;dB lower (so 45&nbsp;dB at night counts as “Noticeable”, like 55&nbsp;dB in the day), matching the extra weight the 24-hour measure gives to night noise.</p>
+      <h3>Zooming in and out</h3>
+      <ul>
+        <li><strong>Country and region view:</strong> each colour is the average sound energy of all the 10&nbsp;m squares beneath it, so a busy motorway still shows as a loud band rather than vanishing.</li>
+        <li><strong>Street view:</strong> from about zoom 12 every 10&nbsp;m square is drawn, and very close in the exact squares are drawn from the original files.</li>
+        <li>Clicking always reads the original 10&nbsp;m square under the pointer, at any zoom.</li>
+        <li><strong>Area</strong> (top right) lets you drag a box, up to 100&nbsp;km², and counts every 10&nbsp;m square in it: how much is very quiet, how much is over the WHO guideline, and where the quietest and loudest spots are.</li>
+        <li><strong>Quiet areas</strong> groups England into hexagons about 5&nbsp;km across and shows how much of each is very quiet for the chosen source.</li>
+      </ul>
       <h3>Decibels in plain terms</h3>
       <ul>
         <li>Noise is measured in decibels (dB). The scale isn't linear: <strong>every 10&nbsp;dB sounds about twice as loud</strong>, and a 3&nbsp;dB change is about the smallest most people notice.</li>
         <li>These are averages over a year. A quiet street with a few loud lorries can have the same average as a steady hum.</li>
-        <li>The World Health Organization recommends keeping average road noise below 53&nbsp;dB (24-hour) and 45&nbsp;dB at night. The map tells you when a spot is above that.</li>
+        <li>The World Health Organization recommends keeping average road noise below 53&nbsp;dB (24-hour) and 45&nbsp;dB at night. The map tells you when a spot is above that, and the legend marks the guideline.</li>
       </ul>
       <h3>The three time options</h3>
       <ul>
         <li><strong>24-hour</strong> (Lden): the yearly average over the whole day, with evening noise counted 5&nbsp;dB louder and night noise 10&nbsp;dB louder, because noise bothers people more then.</li>
         <li><strong>Daytime</strong> (Lday): the average from 7am to 7pm.</li>
         <li><strong>Night</strong> (Lnight): the average from 11pm to 7am.</li>
+      </ul>
+      <h3>The three looks</h3>
+      <ul>
+        <li><strong>Night glow</strong>: loud corridors glow on a dark map; quiet fades into the dark.</li>
+        <li><strong>Editorial atlas</strong>: an ink scale on warm paper, like a printed atlas.</li>
+        <li><strong>Calm guide</strong>: teal where levels are under the WHO guideline, amber to red over it. The WHO gives no daytime-only value, so the daytime map uses one warm scale.</li>
+        <li>The looks change only colours. The data, and what clicking reads, are identical.</li>
       </ul>
       <h3>What the map can't tell you</h3>
       <ul>

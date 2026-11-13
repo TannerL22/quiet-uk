@@ -9,6 +9,15 @@ and aircraft grid for England is downloaded, checked and mapped (1,495 squares o
 click anywhere to see how loud it is, in decibels and in plain words, against the
 WHO's guideline. Zoom in to see each 10 m cell. Save up to three places to compare
 them. **For researchers** holds the full evidence for each spot and the downloads.
+Since 6 November the page is map-first, with three looks to choose from (Night glow,
+Editorial atlas, Calm guide). Zoomed out it shows area averages of the 10 m cells
+rather than samples, and a **Quiet areas** switch shows how much of each 5 km
+hexagon is very quiet. Each look has its own open-licence typeface, and the ONS
+country boundary keeps Defra's "no data" squares outside England from being drawn
+(the stored data is unchanged). Since 7 November, places are suggested as you type
+from a local copy of OS Open Names, and **Area** summarises any box up to 100 km²
+for road or rail noise: how it divides between the bands, and where its quietest and
+loudest spots are.
 Defra has confirmed that a zero is a calculated level below the cutoff,
 so the map shows those cells as **under 40 dB** (under 35 dB at night) instead of
 unknown. [How the England map works](notes/ENGLAND_MAP.md) ·
@@ -162,8 +171,10 @@ See [environment setup](notes/REPRODUCIBLE_ENVIRONMENT.md) and
 [regional acquisition and verification](notes/SOURCE_REGIONAL_RELEASE.md) for
 reproduction instructions.
 
-The basemap needs internet access to OpenFreeMap. Submitted place searches use
-OpenStreetMap Nominatim; coordinate searches and analytical lookups are local.
+The basemap needs internet access to OpenFreeMap. Place suggestions come from a
+local copy of OS Open Names (built by `scripts/126_build_place_names.py`); only a
+search you send on with "Search OpenStreetMap" goes to Nominatim. Coordinate
+searches and analytical lookups are local.
 Try `51.464852, -0.447622` for a local coordinate lookup at Heathrow. Shared links preserve the
 view and dataset version, but this loopback preview is accessible only on the
 same computer. No public deployment has been made.

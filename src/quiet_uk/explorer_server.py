@@ -3,8 +3,10 @@ from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import json
+import math
 import os
 import re
+import sqlite3
 import threading
 import time
 from urllib.parse import parse_qs, urlsplit
@@ -18,7 +20,13 @@ from .serving_snapshot import RegionalSnapshot, COPY_CHUNK
 from .regional_display import RegionalDisplay
 from .independent_observations import IndependentObservations
 from .england_map import EnglandMap, LAYERS
+from .england_overview import EnglandOverview, OverviewIntegrityError, MAX_ZOOM as OVERVIEW_MAX_ZOOM
+from .england_outline import EnglandOutline, OutlineIntegrityError
+from .england_area import AreaSummaries, area_csv, DEFAULT_LEVEL_DB, MARGIN_M, MAX_AREA_KM2, MAX_LEVEL_DB, MAX_SIDE_M, METHOD
 from .map_presentation import THEMES, presentation, recolour
+from .place_names import PlaceNames, PlaceNamesIntegrityError
+
+INTERFACE_VERSION = 9
 
 
 class PlaceSearch:
@@ -100,9 +108,17 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         try:
             if url.path == '/api/app':
                 england = self.server.england
-                return self._json({'app': 'quiet-uk', 'interface_version': 6,
+                outline = self.server.england_outline
+                names = self.server.place_names
+                return self._json({'app': 'quiet-uk', 'interface_version': INTERFACE_VERSION,
                                    'default_view': 'england' if england else 'regional' if self.server.pilot else 'overview',
                                    'england_release': england.release_id if england else None,
+                                   'england_overview_release': self.server.england_overview.release_id if self.server.england_overview else None,
+                                   'england_overview_problem': self.server.england_overview_problem,
+                                   'england_outline_sha256': outline.source['sha256'] if outline else None,
+                                   'england_outline_problem': self.server.england_outline_problem,
+                                   'place_names_release': names.release_id if names else None,
+                                   'place_names_problem': self.server.place_names_problem,
                                    'regional_serving': 'private_snapshot_v1' if self.server.pilot else None,
                                    'regional_release': self.server.pilot.manifest['release_id'] if self.server.pilot else None,
                                    'overview_release': explorer.manifest['release_id'] if explorer else None,
@@ -117,19 +133,90 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                     return self._send(observed.download(), 'application/json; charset=utf-8',
                                       filename=observed.manifest['release_id']+'.json')
                 return self._json(observed.context())
-            national = (url.path in ('/api/dataset', '/api/location', '/downloads/dataset.json', '/downloads/location.json', '/overview')
+            if url.path in ('/api/places', '/api/places/near'):
+                # Suggestions as you type and names for clicked spots, from the local OS Open Names index.
+                names = self.server.place_names
+                if names is None:
+                    starting = not self.server.place_names_ready.is_set()
+                    return self._json({'error': 'Place suggestions are starting.' if starting else
+                                       'Place suggestions are not available on this machine.',
+                                       'code': 'places_starting' if starting else 'places_unavailable',
+                                       'problem': self.server.place_names_problem}, 503 if starting else 404)
+                if url.path == '/api/places':
+                    if 'q' not in params or not set(params) <= {'q', 'near'} or any(len(v) != 1 for v in params.values()):
+                        raise ValueError('Supply one query, and optionally near=longitude,latitude')
+                    near = None
+                    if 'near' in params:
+                        near = tuple(float(v) for v in params['near'][0].split(','))
+                        if len(near) != 2 or not all(math.isfinite(v) for v in near):
+                            raise ValueError('Supply near as longitude,latitude')
+                    return self._json(names.suggest(params['q'][0], near=near))
+                if set(params) != {'lon', 'lat'} or any(len(v) != 1 for v in params.values()):
+                    raise ValueError('Supply one longitude and latitude')
+                return self._json(names.near(float(params['lon'][0]), float(params['lat'][0])))
+            national =(url.path in ('/api/dataset', '/api/location', '/downloads/dataset.json', '/downloads/location.json', '/overview')
                         or url.path.startswith('/tiles/'))
             if national and explorer is None:
                 if url.path == '/overview':
                     return self._send(b'<h1>Historical overview not installed</h1><p>The detailed regional map is available independently.</p><a href="/">Open Quiet UK</a>', 'text/html; charset=utf-8', 404)
                 return self._json({'error': 'Historical overview not installed. Use the detailed regional map.', 'code': 'overview_unavailable'}, 404)
-            if url.path.startswith(('/api/england', '/downloads/england', '/england-tiles/', '/england-cells/')):
+            if url.path.startswith(('/api/england', '/downloads/england', '/england-tiles/', '/england-cells/', '/england-display/')):
                 england = self.server.england
                 if england is None:
                     return self._json({'error': 'The England map has not been built on this machine.'}, 404)
                 if url.path == '/api/england':
-                    # The manifest unchanged, plus how this interface colours and words it.
-                    return self._json({**england.manifest, 'presentation': presentation()})
+                    # The manifest unchanged, plus how this interface colours and words it, and the
+                    # averaged overview (a separate display product) when one verified against this map.
+                    overview, outline, names = self.server.england_overview, self.server.england_outline, self.server.place_names
+                    return self._json({**england.manifest, 'presentation': presentation(),
+                                       'overview': overview.public() if overview else None,
+                                       'overview_problem': self.server.england_overview_problem,
+                                       'outline': outline.public() if outline else None,
+                                       'outline_problem': self.server.england_outline_problem,
+                                       'places': names.public() if names else None,
+                                       'area': {'max_km2': MAX_AREA_KM2, 'max_side_km': MAX_SIDE_M / 1000, 'margin_m': MARGIN_M,
+                                                'default_level_db': DEFAULT_LEVEL_DB, 'max_level_db': MAX_LEVEL_DB,
+                                                'method': METHOD}})
+                if url.path in ('/api/england/area', '/downloads/england-area.json', '/downloads/england-area.csv'):
+                    if (not {'layer', 'bbox', 'release'} <= set(params) <= {'layer', 'bbox', 'release', 'level'}
+                            or any(len(v) != 1 for v in params.values())):
+                        raise ValueError('Supply one layer, box and release, and optionally a level')
+                    if params['release'][0] != england.release_id:
+                        return self._json({'error': 'This view uses another release. Reload to summarise the current evidence.',
+                                           'code': 'release_mismatch'}, 409)
+                    bbox = [float(v) for v in params['bbox'][0].split(',')]
+                    if len(bbox) != 4:
+                        raise ValueError('Supply west,south,east,north')
+                    level = float(params['level'][0]) if 'level' in params else None
+                    try:
+                        result = self.server.areas.summary(params['layer'][0], *bbox, level=level)
+                    except TimeoutError:
+                        return self._json({'error': 'Area summaries are busy. Try again shortly.', 'code': 'busy'}, 503)
+                    if url.path.endswith('.csv'):
+                        return self._send(area_csv(result), 'text/csv; charset=utf-8', filename=england.release_id+'-area.csv')
+                    if url.path.endswith('.json'):
+                        return self._send(json_bytes(result), 'application/json; charset=utf-8', filename=england.release_id+'-area.json')
+                    return self._json(result)
+                if url.path == '/api/england/outline':
+                    if set(params) - {'outline'} or any(len(v) != 1 for v in params.values()):
+                        raise ValueError('The outline takes only the boundary it expects')
+                    outline = self.server.england_outline
+                    if outline is None:
+                        return self._json({'error': 'The England boundary is not installed on this machine.'}, 404)
+                    if 'outline' in params and params['outline'][0] != outline.source['sha256'][:12]:
+                        return self._json({'error': 'This view uses another England boundary. Reload the page.',
+                                           'code': 'release_mismatch'}, 409)
+                    # Not cached: the shapes are drawn from the code as well as the file, and are quick to resend.
+                    return self._send(outline.page_shapes(), 'application/geo+json; charset=utf-8')
+                if url.path == '/api/england/hexes':
+                    if set(params) != {'layer', 'release'} or any(len(v) != 1 for v in params.values()):
+                        raise ValueError('Supply one layer and release')
+                    if params['release'][0] != england.release_id:
+                        return self._json({'error': 'This view uses another release.', 'code': 'release_mismatch'}, 409)
+                    if self.server.england_overview is None:
+                        return self._json({'error': 'The England overview has not been built on this machine.'}, 404)
+                    return self._send(self.server.england_overview.hex_layer(params['layer'][0]),
+                                      'application/json; charset=utf-8', cache='public, max-age=86400')
                 if url.path in ('/api/england/comparison', '/downloads/england-comparison.json', '/downloads/england-comparison.csv'):
                     if set(params) != {'places', 'release'} or any(len(v) != 1 for v in params.values()) or len(params['places'][0]) > 2500:
                         raise ValueError('Supply one bounded place list and release')
@@ -149,6 +236,11 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                         return self._json({'error': 'This view uses another release. Reload to inspect the current evidence.',
                                            'code': 'release_mismatch'}, 409)
                     result = england.lookup(float(params['lon'][0]), float(params['lat'][0]))
+                    outline = self.server.england_outline
+                    if outline is not None:
+                        # Context for the page's wording only; the evidence above is unchanged.
+                        result = {**result, 'country': {'name': outline.country(result['easting'], result['northing']),
+                                                        'boundary': outline.source['name'], 'use': 'context only'}}
                     if url.path.startswith('/downloads/'):
                         return self._send(json_bytes(result), 'application/json; charset=utf-8', filename=england.release_id+'-location.json')
                     return self._json(result)
@@ -165,18 +257,44 @@ class ExplorerHandler(BaseHTTPRequestHandler):
                 if len(theme) != 1 or theme[0] not in THEMES:
                     raise ValueError('Unknown map theme')
                 theme = theme[0]
+                # Pages name the boundary they expect (or "none"), so cached tiles never mix.
+                if 'outline' in params:
+                    outline = self.server.england_outline
+                    if params['outline'] != [outline.source['sha256'][:12] if outline else 'none']:
+                        return self._json({'error': 'This view uses another England boundary. Reload the page.',
+                                           'code': 'release_mismatch'}, 409)
                 cells = re.fullmatch(r'/england-cells/(england-map-[a-f0-9]{20})/([a-z]+-L[a-z]+)/(\d{1,4})/(\d{1,4})\.png', url.path)
                 if cells and cells[1] == england.release_id and cells[2] in LAYERS:
                     data = england.cell_image(cells[2], int(cells[3]), int(cells[4]))
+                    if data is not None and self.server.england_outline is not None:
+                        outline = self.server.england_outline
+                        data = outline.apply(data, outline.window_mask(int(cells[3]), int(cells[4])))
                     if data is None:
                         return self._send(b'', 'image/png', status=204, cache='no-store')
-                    return self._send(recolour(data, theme), 'image/png', cache='public, max-age=86400, immutable')
+                    return self._send(recolour(data, theme, cells[2]), 'image/png', cache='public, max-age=86400, immutable')
                 tile = re.fullmatch(r'/england-tiles/(england-map-[a-f0-9]{20})/([a-z]+-L[a-z]+)/(\d{1,2})/(\d{1,6})/(\d{1,6})\.png', url.path)
                 if tile and tile[1] == england.release_id and tile[2] in LAYERS:
                     data = england.tile(tile[2], *map(int, tile.groups()[2:]))  # Checked against its stored hash.
                     if data is None:
                         return self._send(b'', 'image/png', status=204, cache='public, max-age=86400')
-                    return self._send(recolour(data, theme), 'image/png', cache='public, max-age=86400, immutable')
+                    return self._send(recolour(data, theme, tile[2]), 'image/png', cache='public, max-age=86400, immutable')
+                # What the page draws: averaged overview tiles up to their last zoom, the map's own
+                # tiles closer in. The overview release is in the address, so a rebuild never mixes.
+                display = re.fullmatch(r'/england-display/(england-map-[a-f0-9]{20})/(england-overview-[a-f0-9]{20}|native)/'
+                                       r'([a-z]+-L[a-z]+)/(\d{1,2})/(\d{1,6})/(\d{1,6})\.png', url.path)
+                if display and display[1] == england.release_id and display[3] in LAYERS:
+                    overview = self.server.england_overview
+                    z, x, y = map(int, display.groups()[3:])
+                    if display[2] != 'native' and (overview is None or display[2] != overview.release_id):
+                        return self._json({'error': 'This view uses another overview release.', 'code': 'release_mismatch'}, 409)
+                    data = (overview.tile(display[3], z, x, y) if display[2] != 'native' and z <= OVERVIEW_MAX_ZOOM
+                            else england.tile(display[3], z, x, y))  # Both checked against their stored hashes.
+                    if data is not None and self.server.england_outline is not None:
+                        # No-data outside England is left undrawn; see england_outline.py.
+                        data = self.server.england_outline.apply(data, self.server.england_outline.tile_mask(z, x, y))
+                    if data is None:
+                        return self._send(b'', 'image/png', status=204, cache='public, max-age=86400')
+                    return self._send(recolour(data, theme, display[3]), 'image/png', cache='public, max-age=86400, immutable')
                 return self._json({'error': 'Unknown England map resource'}, 404)
             if url.path.startswith(('/api/pilot', '/downloads/pilot', '/pilot-images/')):
                 pilot = self.server.pilot
@@ -261,6 +379,10 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             if url.path in assets:
                 name, mime = assets[url.path]
                 return self._send((self.server.asset_root/name).read_bytes(), mime)
+            # The page's three typefaces (explorer/fonts; licences beside them). Named files only.
+            font = re.fullmatch(r'/fonts/((?:geist|newsreader|figtree)-latin(?:-ext)?-(?:wght|standard)-normal\.woff2)', url.path)
+            if font and (self.server.asset_root/'fonts'/font[1]).is_file():
+                return self._send((self.server.asset_root/'fonts'/font[1]).read_bytes(), 'font/woff2', cache='public, max-age=86400')
             return self._json({'error': 'Not found'}, 404)
         except (ValueError, KeyError) as exc:
             return self._json({'error': str(exc)}, 400)
@@ -279,10 +401,19 @@ class ExplorerServer(ThreadingHTTPServer):
     # Wait for in-flight requests before removing their private data files.
     daemon_threads = False
 
-    def __init__(self, port, explorer, asset_root, search=None, pilot=None, observations=None, england=None):
+    def __init__(self, port, explorer, asset_root, search=None, pilot=None, observations=None, england=None, england_overview=None,
+                 england_outline=None, outline_source=None, place_names=None):
         self.explorer, self.asset_root = explorer, Path(asset_root)
         self.search = search or PlaceSearch()
         self.england = None
+        self.areas = None
+        self.england_overview = None
+        self.england_overview_problem = None
+        self.england_outline = None
+        self.england_outline_problem = None
+        self.place_names = None
+        self.place_names_problem = None
+        self.place_names_ready = threading.Event()
         self.pilot = None
         self.regional_display = None
         self.observations = None
@@ -293,11 +424,43 @@ class ExplorerServer(ThreadingHTTPServer):
             self.pilot = RegionalSnapshot(pilot) if pilot is not None else None
             self.regional_display = RegionalDisplay(self.pilot) if self.pilot else None
             self.england = EnglandMap(england) if england is not None else None
+            self.areas = AreaSummaries(self.england) if self.england is not None else None
+            if self.england is not None and england_overview is not None:
+                # The overview is a display aid: if it fails its checks the exact map still runs, without it.
+                try:
+                    self.england_overview = EnglandOverview(england_overview, self.england)
+                except (OverviewIntegrityError, OSError) as exc:
+                    self.england_overview_problem = str(exc)
+                    print('England overview not used:', exc, flush=True)
+            if self.england is not None and england_outline is not None:
+                # Also a display aid: without it, tiles are drawn exactly as stored.
+                try:
+                    self.england_outline = EnglandOutline(england_outline, self.england.transformer,
+                                                          **({'source': outline_source} if outline_source else {}))
+                    threading.Thread(target=self.england_outline.page_shapes, daemon=True).start()
+                except (OutlineIntegrityError, OSError, ValueError) as exc:
+                    self.england_outline_problem = str(exc)
+                    print('England boundary not used:', exc, flush=True)
+            if place_names is not None:
+                # Checked (a 600 MB hash) in the background, so the map opens at once; until then,
+                # and if the check fails, the page has no suggestions and searches on Enter as before.
+                threading.Thread(target=self._load_place_names, args=(place_names,), daemon=True).start()
+            else:
+                self.place_names_ready.set()
         except BaseException:
             super().server_close()
             if self.pilot is not None:
                 self.pilot.close()
             raise
+
+    def _load_place_names(self, root):
+        try:
+            self.place_names = PlaceNames(root)
+        except (PlaceNamesIntegrityError, OSError, sqlite3.Error, ValueError, KeyError) as exc:
+            self.place_names_problem = str(exc)
+            print('Place suggestions not used:', exc, flush=True)
+        finally:
+            self.place_names_ready.set()
 
     def server_close(self):
         super().server_close()
@@ -305,6 +468,11 @@ class ExplorerServer(ThreadingHTTPServer):
             self.pilot.close()
         if self.england is not None:
             self.england.close()
+        if self.england_overview is not None:
+            self.england_overview.close()
+        self.place_names_ready.wait(30)
+        if self.place_names is not None:
+            self.place_names.close()
 
     def get_request(self):
         connection, address = super().get_request()

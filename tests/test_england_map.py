@@ -3,6 +3,7 @@ import csv
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import sqlite3
@@ -15,6 +16,7 @@ import warnings
 
 import numpy as np
 from PIL import Image
+import pyproj.datadir
 import pytest
 import rasterio
 from rasterio.io import MemoryFile
@@ -176,6 +178,21 @@ def test_transformation_grid_is_pinned_by_fingerprint(tmp_path, monkeypatch):
         m.pinned_transformer(pinned)
 
 
+def test_grids_in_the_project_folder_are_found(tmp_path, monkeypatch):
+    # Programs started outside a packaged Windows app cannot see grids that app wrote to
+    # %LOCALAPPDATA%, so the project keeps its own copy in artifacts/proj.
+    before = pyproj.datadir.get_data_dir()
+    monkeypatch.setattr(m, 'PROJECT_GRIDS', tmp_path)
+    (tmp_path / 'project_only_grid.tif').write_bytes(b'grid')
+    try:
+        assert m.grid_path('project_only_grid.tif') == tmp_path / 'project_only_grid.tif'
+        assert pyproj.datadir.get_data_dir().split(os.pathsep).count(str(tmp_path)) == 1
+        m.use_project_grids()  # Adding it again changes nothing.
+        assert pyproj.datadir.get_data_dir().split(os.pathsep).count(str(tmp_path)) == 1
+    finally:
+        pyproj.datadir.set_data_dir(before)
+
+
 def test_unsealed_acquisition_needs_an_explicit_preview(acquisition, tmp_path):
     with pytest.raises(m.MapIntegrityError, match='not sealed'):
         m.build(acquisition, tmp_path/'map', workers=0)
@@ -322,7 +339,7 @@ def test_server_routes_tiles_cells_and_point_evidence(built):
     try:
         app = json.load(urlopen(base+'/api/app'))
         release = app['england_release']
-        assert app['default_view'] == 'england' and app['interface_version'] == 6 and release.startswith('england-map-')
+        assert app['default_view'] == 'england' and app['interface_version'] == 9 and release.startswith('england-map-')
         assert b'england.js' in urlopen(base+'/').read() and b'england.js' in urlopen(base+'/england').read()
         england = server.england
         manifest = json.load(urlopen(base+'/api/england'))
@@ -374,8 +391,8 @@ def test_recolouring_swaps_only_the_palette(built):
     stored = england.tile(layer, z, x, y)
     stored_image = Image.open(io.BytesIO(stored))
     for theme in THEMES:
-        assert len(palette(theme)) == len(england.manifest['display']['palette_rgba'])
-        served = recolour(stored, theme)
+        assert len(palette(theme, layer)) == len(england.manifest['display']['palette_rgba'])
+        served = recolour(stored, theme, layer)
         before, after = png_chunks(stored), png_chunks(served)
         assert [k for k, _ in before] == [k for k, _ in after]
         unchanged = lambda chunks: [d for k, d in chunks if k not in (b'PLTE', b'tRNS')]
@@ -384,8 +401,8 @@ def test_recolouring_swaps_only_the_palette(built):
         image.load()  # Fails on a bad chunk checksum.
         assert image.mode == 'P' and np.array_equal(np.asarray(image), np.asarray(stored_image))
         rgb = image.getpalette()[:36]
-        assert [tuple(rgb[i:i + 3]) for i in range(0, 36, 3)] == [c[:3] for c in palette(theme)]
-        assert list(image.info['transparency']) == [c[3] for c in palette(theme)]
+        assert [tuple(rgb[i:i + 3]) for i in range(0, 36, 3)] == [c[:3] for c in palette(theme, layer)]
+        assert list(image.info['transparency']) == [c[3] for c in palette(theme, layer)]
     assert england.tile(layer, z, x, y) == stored  # Stored tiles are never rewritten.
     buffer = io.BytesIO()
     Image.new('RGBA', (4, 4)).save(buffer, 'PNG')

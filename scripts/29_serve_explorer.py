@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from quiet_uk.explorer import Explorer, publish_display
 from quiet_uk.explorer_server import ExplorerServer, PlaceSearch
+from quiet_uk.england_outline import DEFAULT_PATH as OUTLINE_PATH
+from quiet_uk.place_names import DEFAULT_INDEX as PLACES_PATH
 from quiet_uk.serving_snapshot import serving_environment
 
 
@@ -37,6 +39,15 @@ def main():
     england = next((path for path in (ROOT/'artifacts/england_map_v1', ROOT/'artifacts/england_map_preview')
                     if (path/'manifest.json').exists()), None)
     parser.add_argument('--england', type=Path, default=england, help='England map release (default: newest installed)')
+    overview = ROOT/'artifacts/england_overview_v1'
+    parser.add_argument('--england-overview', type=Path, default=overview if (overview/'manifest.json').exists() else None,
+                        help='Averaged zoomed-out tiles and hexagons for the England map (default: installed overview)')
+    outline = ROOT/OUTLINE_PATH
+    parser.add_argument('--england-outline', type=Path, default=outline if outline.exists() else None,
+                        help='ONS country boundary used to leave no-data outside England undrawn (default: installed file)')
+    places = ROOT/PLACES_PATH
+    parser.add_argument('--place-names', type=Path, default=places if (places/'manifest.json').exists() else None,
+                        help='Local OS Open Names index for suggestions as you type (default: installed index)')
     args = parser.parse_args()
     if args.regional_only and args.build_only:
         parser.error('--regional-only cannot be combined with --build-only')
@@ -60,9 +71,15 @@ def main():
         parser.error('No local release found. Supply --pilot PATH to an extracted regional bundle. Historical data is built only with --build-only.')
     if args.england is not None and not args.regional_only:
         print('England map:', args.england.name, flush=True)
+        print('England overview:', args.england_overview.name if args.england_overview else 'not installed (exact tiles at every zoom)', flush=True)
+        print('England boundary:', args.england_outline.name if args.england_outline else 'not installed (tiles drawn as stored)', flush=True)
+        print('Place names:', args.place_names.name if args.place_names else 'not installed (search on Enter only)', flush=True)
     print('Historical overview: available at /overview' if explorer else 'Regional mode: historical overview not installed or disabled.', flush=True)
     server = ExplorerServer(args.port, explorer, ROOT/'explorer', PlaceSearch(args.geocoder), pilot=pilot,
-                            observations=args.observations, england=None if args.regional_only else args.england)
+                            observations=args.observations, england=None if args.regional_only else args.england,
+                            england_overview=None if args.regional_only else args.england_overview,
+                            england_outline=None if args.regional_only else args.england_outline,
+                            place_names=None if args.regional_only else args.place_names)
     print(f'Quiet UK explorer: http://127.0.0.1:{server.server_port}', flush=True)
     try:
         server.serve_forever()
